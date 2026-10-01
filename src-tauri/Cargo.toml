@@ -1,0 +1,23 @@
+[package]
+name = "nolithium"
+version = "0.1.0"
+description = "A quiet space for notes and daily planning"
+authors = ["Nolithium"]
+edition = "2021"
+
+[lib]
+name = "nolithium_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
