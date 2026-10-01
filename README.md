@@ -59,8 +59,6 @@ The native Windows title bar is disabled. Nolithium's header supports dragging a
 
 Notes use `nolithium.desk.v2` in localStorage. On first load, the previous `nolithium.workspace.v1` notes are copied verbatim with a default symbol. The original workspace—including tags, timestamps and plans—remains untouched in its original key. This UI has no planner. No demo notes are inserted into a fresh desk. Browser and native WebView storage remain separate.
 
-The previous `model.ts`, its tests, `styles.css` and `components/liquid.tsx` remain as unused legacy code; the new app does not import their UI or migration behavior.
-
 ## Validation
 
 ```powershell
