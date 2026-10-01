@@ -7,7 +7,8 @@ import { NotesBoard } from './components/NotesBoard';
 import { ContextMenu } from './components/ContextMenu';
 import { ZenEditor, type Rect } from './components/ZenEditor';
 import { dragWindow, WindowControls } from './components/WindowControls';
-import { DESK_KEY, deskGeometry, discardEmptyDrafts, loadDesk } from './desk';
+import { deskGeometry, discardEmptyDrafts } from './desk';
+import { deskStore, type LoadResult } from './storage';
 import type { Note } from './types';
 import { quickFade } from './motion';
 
@@ -26,11 +27,19 @@ function focusQuietly(element: HTMLElement | null | undefined) {
 }
 
 export default function App() {
+  const [loaded, setLoaded] = useState<LoadResult | null>(null);
+  useEffect(() => {
+    let live = true;
+    deskStore.load().then(
+      result => { if (live) setLoaded(result); },
+      () => { if (live) setLoaded({ notes: [], error: 'Saved notes could not be read. The original data has been left untouched.' }); });
+    return () => { live = false; };
+  }, []);
+  return loaded ? <Desk loaded={loaded} /> : null;
+}
+
+function Desk({ loaded }: { loaded: LoadResult }) {
   const glass = useGlassBlur();
-  const [loaded] = useState(() => {
-    try { return loadDesk(localStorage); }
-    catch { return { notes: [], error: 'Local storage is unavailable.' }; }
-  });
   const [notes, setNotes] = useState(loaded.notes);
   const [color, setColor] = useState(() => { try { const value = localStorage.getItem('nolithium.appearance.v1'); return value && /^#[0-9a-f]{6}$/i.test(value) ? value : '#121717'; } catch { return '#121717'; } });
   const newNoteIds = useRef(new Set<string>());
@@ -51,28 +60,33 @@ export default function App() {
   const focusOrigin = useRef<HTMLElement | null>(null);
   const notesRef = useRef(notes);
   const dirty = useRef(false);
+  // Saves run one at a time, in order, so an older write never lands after a newer one.
+  const saving = useRef<Promise<boolean>>(Promise.resolve(true));
   const active = notes.find(note => note.id === activeId);
   const menuNote = notes.find(note => note.id === menu?.id);
 
-  const persist = useCallback(() => {
-    if (loaded.error) { setSaveState('error'); return false; }
-    try {
-      localStorage.setItem(DESK_KEY, JSON.stringify({ version: 2, notes: discardEmptyDrafts(notesRef.current, newNoteIds.current) }));
-      dirty.current = false; setSaveState('saved');
-      return true;
-    } catch { setSaveState('error'); return false; }
+  const persist = useCallback((): Promise<boolean> => {
+    if (loaded.error) { setSaveState('error'); return Promise.resolve(false); }
+    const snapshot = discardEmptyDrafts(notesRef.current, newNoteIds.current);
+    dirty.current = false;
+    saving.current = saving.current.then(() => deskStore.save(snapshot)).then(
+      () => { if (!dirty.current) setSaveState('saved'); return true; },
+      () => { dirty.current = true; setSaveState('error'); return false; });
+    return saving.current;
   }, [loaded.error]);
+  /** Before the window closes: write pending changes and wait for any save in flight. */
+  const flushForClose = useCallback(() => dirty.current ? persist() : saving.current, [persist]);
 
   const updateNotes = useCallback((next: Note[]) => {
     notesRef.current = next; dirty.current = true;
     setNotes(next); setSaveState(loaded.error ? 'error' : 'saving');
   }, [loaded.error]);
   useEffect(() => {
-    const timer = setTimeout(persist, 180);
+    const timer = setTimeout(() => { if (dirty.current) void persist(); }, 180);
     return () => clearTimeout(timer);
   }, [notes, persist]);
   useEffect(() => {
-    const flush = () => { if (dirty.current) persist(); };
+    const flush = () => { if (dirty.current) void persist(); };
     const hidden = () => { if (document.visibilityState === 'hidden') flush(); };
     const beforeUnload = (event: BeforeUnloadEvent) => {
       flush();
@@ -164,10 +178,10 @@ export default function App() {
     <div className="desk-underlay" aria-hidden="true" />
       <header className="desk-header" onMouseDown={dragWindow}>
         <div className="desk-brand"><Feather size={16} strokeWidth={1.5} /><span>nolithium</span><span className="desk-divider" /><span className="desk-view">Desk</span></div>
-        <div className="desk-tools"><motion.div className="desk-tools-fade" style={{ opacity: toolsOpacity }} inert={!!activeId}><span className="note-total">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span><Appearance color={color} onChange={setColor} blur={glass.blur} onBlurChange={glass.setBlur} blurError={glass.error} disabled={!!activeId} /></motion.div><WindowControls beforeClose={() => !dirty.current || persist()} /></div>
+        <div className="desk-tools"><motion.div className="desk-tools-fade" style={{ opacity: toolsOpacity }} inert={!!activeId}><span className="note-total">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span><Appearance color={color} onChange={setColor} blur={glass.blur} onBlurChange={glass.setBlur} blurError={glass.error} disabled={!!activeId} /></motion.div><WindowControls beforeClose={flushForClose} /></div>
       </header>
     <motion.div ref={deskRef} className="desk-home" style={{ opacity: deskOpacity, scale: deskScale }} inert={!!activeId || !!menu}>
-      {saveState === 'error' && <div className="storage-alert" role="alert">{loaded.error || 'Changes are not saved. Local storage is unavailable.'}<button onClick={exportNotes}>Export notes</button></div>}
+      {saveState === 'error' && <div className="storage-alert" role="alert">{loaded.error || 'Changes could not be saved.'}<button onClick={exportNotes}>Export notes</button></div>}
       <motion.div layoutScroll className="board-viewport" ref={boardRef}><NotesBoard notes={boardSnapshot ?? notes} columns={geometry.columns} slots={geometry.slots} onOpen={openNote} onMenu={openMenu} onCreate={createNote} /></motion.div>
       <footer className="desk-footer"><span><span className={`status-light ${saveState}`} />{saveState === 'saved' ? 'All changes saved' : saveState === 'saving' ? 'Saving…' : 'Not saved'}</span><span>Right-click to customize<span className="footer-separator">·</span><kbd>Ctrl N</kbd> new note</span></footer>
     </motion.div>

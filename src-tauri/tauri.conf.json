@@ -21,6 +21,7 @@
       "decorations": false,
       "backgroundColor": "#00000000",
       "theme": "Dark",
+      "visible": false,
       "windowEffects": { "effects": ["acrylic"], "color": "#090B0E30" }
     }],
     "security": { "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data:; connect-src ipc: http://ipc.localhost" }

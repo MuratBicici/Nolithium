@@ -44,7 +44,9 @@ The native Windows title bar is disabled. Nolithium's header supports dragging a
 - Right-click a tile, press Shift+F10 while it is focused, or use its options button to rename, select a symbol, pin, or delete. Delete offers Undo.
 - The editor has only Copy All, Close, a textarea, and save/word/character status. Escape or the outside margin closes it.
 - Ctrl+B and Ctrl+I wrap selected text with Markdown markers. Enter continues indented checklist lines such as `- [ ] item`; Enter on an empty checklist ends the list.
-- Changes autosave after 180 ms of inactivity and flush when closing the editor or leaving the page. Storage failures are visible and allow a JSON export from the desk.
+- Changes autosave after 180 ms of inactivity. Every way of closing the window (button, Alt+F4, taskbar) waits for pending notes to be written; if saving fails the window stays open once, then closes on the next attempt. Storage failures are visible and allow a JSON export from the desk.
+- Ctrl+B, Ctrl+I and checklist Enter go through the browser's editing pipeline, so Ctrl+Z / Ctrl+Y undo and redo them.
+- The window reopens at its last size, position and maximized state; a position on a disconnected monitor is ignored.
 
 ## Source map
 
@@ -56,15 +58,23 @@ The native Windows title bar is disabled. Nolithium's header supports dragging a
 - `src/App.tsx`: desk geometry, note state, autosave and overlays.
 - `src/index.css`: transparent root and current glass system.
 - `src/desk.ts`: migration, validation, geometry and text transformations.
+- `src/storage.ts`: the `DeskStore` seam — file store for the desktop app, localStorage for the browser preview.
+- `src-tauri/src/storage.rs`, `window_state.rs`: atomic file writes with backup, and window bounds.
 
-Notes use `nolithium.desk.v2` in localStorage. On first load, the previous `nolithium.workspace.v1` notes are copied verbatim with a default symbol. The original workspace—including tags, timestamps and plans—remains untouched in its original key. This UI has no planner. No demo notes are inserted into a fresh desk. Browser and native WebView storage remain separate.
+## Storage
+
+The desktop app keeps notes in `desk.json` in the app data folder (`%APPDATA%\com.nolithium.desktop`). Rust writes it atomically — temporary file, flush, rename — so a crash never leaves a half-written file, and the previous version is kept as `desk.json.bak`, which is used automatically if the main file cannot be read. If neither copy is readable, saving is blocked so nothing is overwritten. Window bounds live in `window.json` beside it.
+
+On the first run with file storage, notes are migrated from the WebView's localStorage (`nolithium.desk.v2`, or the older `nolithium.workspace.v1`, copied verbatim with a default symbol); localStorage is left untouched as a safety copy. The browser preview keeps using localStorage. Appearance settings stay in localStorage per device.
+
+All persistence goes through the `DeskStore` interface in `src/storage.ts`. Notes carry stable ids and an `updatedAt` stamped on every change, which a future cloud store can use to merge.
 
 ## Validation
 
 ```powershell
 npm run build
 npm test
-cargo check --manifest-path src-tauri/Cargo.toml --offline
+cargo test --manifest-path src-tauri/Cargo.toml --offline
 ```
 
 The unit suite covers migration without data loss, malformed storage, square grid geometry, Markdown selection wrapping, and checklist continuation. Native wallpaper refraction must be checked in the Tauri window; a browser screenshot is not evidence of native compositor behavior.

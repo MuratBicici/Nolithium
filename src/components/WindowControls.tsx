@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Copy, Minus, Square, X } from 'lucide-react';
@@ -10,10 +10,28 @@ export function dragWindow(event: MouseEvent<HTMLElement>) {
   void action.catch(error => console.error('Window interaction failed:', error));
 }
 
-export function WindowControls({ beforeClose }: { beforeClose: () => boolean }) {
+export function WindowControls({ beforeClose }: { beforeClose: () => Promise<boolean> }) {
   const [maximized, setMaximized] = useState(false);
   const [error, setError] = useState('');
   const native = isTauri();
+  const flush = useRef(beforeClose);
+  flush.current = beforeClose;
+  // After a failed save the next close request is honoured, so the window can always be closed.
+  const forceNextClose = useRef(false);
+
+  // Every close path (this button, Alt+F4, the taskbar) waits here for pending notes to be written.
+  useEffect(() => {
+    if (!native) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void getCurrentWindow().onCloseRequested(async event => {
+      if (await flush.current() || forceNextClose.current) return;
+      event.preventDefault();
+      forceNextClose.current = true;
+      setError('Notes could not be saved. Export them first, or close again to discard the latest changes.');
+    }).then(stop => { if (disposed) stop(); else unlisten = stop; });
+    return () => { disposed = true; unlisten?.(); };
+  }, [native]);
 
   useEffect(() => {
     if (!native) return;
@@ -36,10 +54,7 @@ export function WindowControls({ beforeClose }: { beforeClose: () => boolean }) 
       const window = getCurrentWindow();
       if (action === 'minimize') await window.minimize();
       if (action === 'maximize') { await window.toggleMaximize(); setMaximized(await window.isMaximized()); }
-      if (action === 'close') {
-        if (!beforeClose()) { setError('Notes could not be saved. Close the editor and export them first.'); return; }
-        await window.close();
-      }
+      if (action === 'close') await window.close();
     } catch { setError('Window action failed. Please try again.'); }
   }
 
