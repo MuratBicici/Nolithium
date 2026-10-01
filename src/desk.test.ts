@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { continueChecklist, decodeDesk, DESK_KEY, deskGeometry, discardEmptyDrafts, LEGACY_KEY, loadDesk, wrapSelection } from './desk';
+import { continueChecklist, decodeDesk, DESK_KEY, deskGeometry, discardEmptyDrafts, LEGACY_KEY, loadDesk, textChange, wrapSelection } from './desk';
 
 it('discards empty new drafts but keeps existing notes and single-character drafts', () => {
   const base = { title: 'Untitled', symbol: '✎' as const, isPinned: false, updatedAt: '2026-10-01T10:00:00Z' };
@@ -62,4 +62,12 @@ describe('plaintext editing shortcuts', () => {
     const value = '- [ ] task\n- [ ] ';
     expect(continueChecklist(value, value.length, value.length)?.text).toBe('- [ ] task\n');
   });
+});
+
+it('finds the minimal replacement between two texts', () => {
+  const apply = (before: string, after: string) => { const c = textChange(before, after); return before.slice(0, c.start) + c.insert + before.slice(c.end); };
+  const cases = [['hello world', 'hello **world**'], ['- [ ] a\n', '- [ ] a\n- [ ] '], ['- [ ] ', ''], ['aaa', 'aaaa'], ['same', 'same'], ['', 'new']];
+  for (const [before, after] of cases) expect(apply(before, after)).toBe(after);
+  expect(textChange('hello world', 'hello **world**')).toEqual({ start: 6, end: 11, insert: '**world**' });
+  expect(textChange('- [ ] a\n- [ ] ', '- [ ] a\n')).toEqual({ start: 8, end: 14, insert: '' });
 });

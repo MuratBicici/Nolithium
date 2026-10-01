@@ -59,3 +59,12 @@ export function continueChecklist(text: string, start: number, end: number) {
   const prefix = `\n${match[1]}- [ ] `;
   return { text: text.slice(0, start) + prefix + text.slice(end), start: start + prefix.length, end: start + prefix.length };
 }
+
+/** The smallest single replacement turning `before` into `after`: replace [start, end) with `insert`. */
+export function textChange(before: string, after: string) {
+  let start = 0;
+  while (start < before.length && start < after.length && before[start] === after[start]) start++;
+  let tail = 0;
+  while (tail < before.length - start && tail < after.length - start && before[before.length - 1 - tail] === after[after.length - 1 - tail]) tail++;
+  return { start, end: before.length - tail, insert: after.slice(start, after.length - tail) };
+}

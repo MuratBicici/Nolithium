@@ -3,7 +3,7 @@ import { animate, motion, useReducedMotion, useTransform, type AnimationPlayback
 import { Check, Copy, X } from 'lucide-react';
 import type { Note } from '../types';
 import { closeSpring, openSpring, reducedFade } from '../motion';
-import { continueChecklist, wrapSelection } from '../desk';
+import { continueChecklist, textChange, wrapSelection } from '../desk';
 import { GlassOptics } from './GlassOptics';
 
 export type Rect = { top: number; right: number; bottom: number; left: number };
@@ -20,6 +20,21 @@ interface Props {
   onChange: (content: string) => void;
   onClosing: () => void;
   onClosed: () => void;
+}
+
+/**
+ * Applies a shortcut's edit through the browser's own editing pipeline, so it
+ * joins the native undo history (setting `value` directly would wipe Ctrl+Z).
+ */
+function applyEdit(field: HTMLTextAreaElement, edit: { text: string; start: number; end: number }) {
+  const change = textChange(field.value, edit.text);
+  if (change.start !== change.end || change.insert) {
+    field.setSelectionRange(change.start, change.end);
+    const applied = change.insert ? document.execCommand('insertText', false, change.insert) : document.execCommand('delete');
+    if (!applied || field.value !== edit.text) return false;
+  }
+  field.setSelectionRange(edit.start, edit.end);
+  return true;
 }
 
 const TILE_RADIUS = 17;
@@ -92,7 +107,9 @@ export function ZenEditor({ note, saveState, isDraft, progress, measureTile, onC
     let edit: { text: string; start: number; end: number } | null = null;
     if ((event.ctrlKey || event.metaKey) && (key === 'b' || key === 'i')) edit = wrapSelection(note.content, field.selectionStart, field.selectionEnd, key === 'b' ? '**' : '*');
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) edit = continueChecklist(note.content, field.selectionStart, field.selectionEnd);
-    if (edit) { event.preventDefault(); onChange(edit.text); requestAnimationFrame(() => field.setSelectionRange(edit.start, edit.end)); }
+    if (!edit) return;
+    event.preventDefault();
+    if (!applyEdit(field, edit)) { onChange(edit.text); requestAnimationFrame(() => field.setSelectionRange(edit.start, edit.end)); }
   }
   async function copy() {
     try { await navigator.clipboard.writeText(note.content); setCopyState('Copied'); }
@@ -110,7 +127,7 @@ export function ZenEditor({ note, saveState, isDraft, progress, measureTile, onC
         <motion.div className="zen-inner" style={{ opacity: contentOpacity, y: contentY }}>
           <div className="zen-actions"><button className="micro-button" onClick={copy} aria-label={copyState} title={copyState}>{copyState === 'Copied' ? <Check size={16} /> : <Copy size={16} />}</button><button className="micro-button" onClick={close} aria-label="Close editor" title="Close · Esc"><X size={19} /></button></div>
           <textarea ref={textRef} className="zen-text" aria-label="Note content" placeholder="Write…" value={note.content} onChange={event => onChange(event.target.value)} onKeyDown={keyDown} spellCheck />
-          <footer className="zen-status"><span className={`save-state ${saveState}`} role="status"><span />{isDraft ? 'Draft' : saveState === 'saved' ? 'Saved' : saveState === 'saving' ? 'Saving…' : 'Not saved · storage unavailable'}</span><span>{words} {words === 1 ? 'word' : 'words'}<i />{Array.from(note.content).length} characters</span></footer>
+          <footer className="zen-status"><span className={`save-state ${saveState}`} role="status"><span />{isDraft ? 'Draft' : saveState === 'saved' ? 'Saved' : saveState === 'saving' ? 'Saving…' : 'Not saved'}</span><span>{words} {words === 1 ? 'word' : 'words'}<i />{Array.from(note.content).length} characters</span></footer>
         </motion.div>
       </motion.div>
     </div>
