@@ -7,6 +7,7 @@ import Highlight from '@tiptap/extension-highlight';
 import { Placeholder } from '@tiptap/extensions';
 import { Markdown } from '@tiptap/markdown';
 import { preserveBlankLines } from './markdown';
+import { slashCommands, type SlashStore } from './slash';
 
 /**
  * Notes were written as plain text, where a single newline is a line break.
@@ -57,7 +58,7 @@ const ToggleTask = Extension.create({
 });
 
 /** The one extension list shared by the editor and the Markdown tests. */
-export function editorExtensions({ placeholder }: { placeholder?: string } = {}): AnyExtension[] {
+export function editorExtensions({ placeholder, slash }: { placeholder?: string; slash?: SlashStore } = {}): AnyExtension[] {
   return [
     StarterKit.configure({
       hardBreak: false,
@@ -73,5 +74,6 @@ export function editorExtensions({ placeholder }: { placeholder?: string } = {})
     MarkdownPaste,
     ToggleTask,
     ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
+    ...(slash ? [slashCommands(slash)] : []),
   ];
 }

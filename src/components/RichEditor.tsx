@@ -4,6 +4,8 @@ import { editorExtensions } from '../editor/extensions';
 import { preserveBlankLines, serializeMarkdown } from '../editor/markdown';
 import { openLink } from '../editor/links';
 import { SelectionBubble } from './SelectionBubble';
+import { SlashMenu } from './SlashMenu';
+import { createSlashStore } from '../editor/slash';
 
 interface Props {
   /** Markdown source; read once when the editor mounts. */
@@ -23,7 +25,8 @@ export function RichEditor({ content, onChange, onReady }: Props) {
   // Markdown as of the last save (or as loaded). Structural housekeeping such as
   // the trailing paragraph added on focus serializes identically and is ignored.
   const saved = useRef<string | null>(null);
-  const extensions = useMemo(() => editorExtensions({ placeholder: 'Write…' }), []);
+  const slash = useMemo(createSlashStore, []);
+  const extensions = useMemo(() => editorExtensions({ placeholder: 'Write…  ·  type / for blocks', slash }), [slash]);
   const editor = useEditor({
     extensions,
     content: preserveBlankLines(content),
@@ -70,7 +73,8 @@ export function RichEditor({ content, onChange, onReady }: Props) {
     // Clicks in the margins below the text continue writing at the end.
     if (event.target === event.currentTarget && editor) { event.preventDefault(); editor.commands.focus('end'); }
   }}>
-    <EditorContent editor={editor} />
+    <EditorContent editor={editor} className="zen-doc" />
     {editor && <SelectionBubble editor={editor} scrollTarget={scroller} />}
+    <SlashMenu store={slash} />
   </div>;
 }

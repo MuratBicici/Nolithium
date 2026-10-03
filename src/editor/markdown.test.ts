@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { editorExtensions } from './extensions';
 import { preserveBlankLines, serializeMarkdown } from './markdown';
+import { createSlashStore, filterSlashItems } from './slash';
 
 function load(markdown: string) {
   return new Editor({ extensions: editorExtensions(), content: preserveBlankLines(markdown), contentType: 'markdown' });
@@ -89,6 +90,31 @@ describe('editor behaviour', () => {
     editor.commands.setContent('', { contentType: 'markdown' });
     type(editor, 'so **bold** move');
     expect(serializeMarkdown(editor)).toBe('so **bold** move');
+    editor.destroy();
+  });
+});
+
+describe('slash commands', () => {
+  it('filters by title and keywords, Turkish ones included', () => {
+    expect(filterSlashItems('').length).toBe(9);
+    expect(filterSlashItems('che').map(item => item.id)).toEqual(['task']);
+    expect(filterSlashItems('head').map(item => item.id)).toEqual(['h1', 'h2', 'h3']);
+    expect(filterSlashItems('alıntı').map(item => item.id)).toEqual(['quote']);
+    expect(filterSlashItems('zzz')).toEqual([]);
+  });
+
+  it('turns "/che" + select into a checklist and removes the typed command', async () => {
+    const slash = createSlashStore();
+    const editor = new Editor({ extensions: editorExtensions({ slash }), content: 'Groceries', contentType: 'markdown' });
+    editor.commands.focus('end');
+    editor.commands.enter();
+    type(editor, '/che');
+    await new Promise(resolve => setTimeout(resolve, 0)); // items resolve asynchronously
+    const session = slash.get();
+    expect(session?.items.map(item => item.id)).toEqual(['task']);
+    session!.select(session!.items[0]);
+    expect(serializeMarkdown(editor)).toBe('Groceries\n\n- [ ] ');
+    expect(slash.get()).toBeNull();
     editor.destroy();
   });
 });
