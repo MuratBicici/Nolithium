@@ -136,10 +136,11 @@ export function ZenEditor({ note, saveState, isDraft, progress, measureTile, onC
 
   // Window-level, so Esc and Ctrl+Shift+M work wherever focus is — including <body>
   // after a click on the status bar or other non-focusable parts of the editor.
-  // Inner layers (link field, / menu) handle Esc first and mark it defaultPrevented.
+  // Inner layers (link field, style list, / menu) handle Esc first and stop its
+  // propagation. defaultPrevented is no signal: ProseMirror prevents every real Esc.
   const windowKeys = useRef<(event: globalThis.KeyboardEvent) => void>(() => {});
   windowKeys.current = event => {
-    if (event.isComposing || event.defaultPrevented) return;
+    if (event.isComposing) return;
     if (event.key === 'Escape') {
       event.preventDefault();
       const editor = editorRef.current;

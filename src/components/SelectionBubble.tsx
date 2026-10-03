@@ -55,10 +55,12 @@ export function SelectionBubble({ editor, scrollTarget }: { editor: Editor; scro
   }
 
   // Ctrl+K opens the link field for the selection, or for the link under the caret.
+  // Esc with the text-style list open closes just the list (focus stays in the text).
   useEffect(() => {
     const dom = editor.view.dom;
     const onKey = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'k') { event.preventDefault(); startLink(); }
+      if (event.key === 'Escape' && typesOpen) { event.stopPropagation(); setTypesOpen(false); }
     };
     dom.addEventListener('keydown', onKey);
     return () => dom.removeEventListener('keydown', onKey);

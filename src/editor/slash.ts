@@ -77,7 +77,8 @@ export function slashCommands(store: SlashStore) {
           onStart: props => store.set(toSession(props)),
           onUpdate: props => store.set(toSession(props)),
           onKeyDown: ({ view, event }) => {
-            if (event.key === 'Escape') { exitSuggestion(view, slashKey); store.set(null); return true; }
+            // Stop here so the editor's window-level Esc (close) never sees it.
+            if (event.key === 'Escape') { event.stopPropagation(); exitSuggestion(view, slashKey); store.set(null); return true; }
             return store.keyDown(event);
           },
           onExit: () => store.set(null),
