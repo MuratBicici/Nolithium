@@ -133,12 +133,34 @@ export function ZenEditor({ note, saveState, isDraft, progress, measureTile, onC
     }
   }
   function toggleMode() { setMode(current => current === 'rich' ? 'markdown' : 'rich'); }
+
+  // Window-level, so Esc and Ctrl+Shift+M work wherever focus is — including <body>
+  // after a click on the status bar or other non-focusable parts of the editor.
+  // Inner layers (link field, / menu) handle Esc first and mark it defaultPrevented.
+  const windowKeys = useRef<(event: globalThis.KeyboardEvent) => void>(() => {});
+  windowKeys.current = event => {
+    if (event.isComposing || event.defaultPrevented) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      const editor = editorRef.current;
+      // First Esc drops a text selection (and its bubble); the next one closes.
+      if (editor && !editor.state.selection.empty && editor.view.hasFocus()) editor.commands.setTextSelection(editor.state.selection.to);
+      else close();
+    } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'm') {
+      event.preventDefault(); toggleMode();
+    }
+  };
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => windowKeys.current(event);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const readable = plainText(note.content);
   const words = readable ? readable.split(/\s+/u).length : 0;
   return <div className="zen-layer" style={{ pointerEvents: closing ? 'none' : 'auto' }}>
     <button className="zen-outside" tabIndex={-1} aria-label="Close editor" onClick={close} />
     <div ref={frameRef} className="zen-frame" role="dialog" aria-modal="true" aria-label="Note editor"
-      onKeyDown={event => { if (event.key === 'Escape' && !event.defaultPrevented) { event.stopPropagation(); const editor = editorRef.current; if (editor && !editor.state.selection.empty && editor.view.hasFocus()) { editor.commands.setTextSelection(editor.state.selection.to); } else close(); } if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'm') { event.preventDefault(); toggleMode(); } if (event.key === 'Tab' && !event.defaultPrevented) { const elements = frameRef.current!.querySelectorAll<HTMLElement>('button,textarea,[contenteditable="true"]'); const first = elements[0]; const last = elements[elements.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } } }}>
+      onKeyDown={event => { if (event.key === 'Tab' && !event.defaultPrevented) { const elements = frameRef.current!.querySelectorAll<HTMLElement>('button,textarea,[contenteditable="true"]'); const first = elements[0]; const last = elements[elements.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } } }}>
       <motion.div className="zen-surface glass-surface" aria-hidden="true" style={{ top, right, bottom, left, borderRadius: radius, opacity: surfaceOpacity }}>
         <GlassOptics interactive={false} />
       </motion.div>
