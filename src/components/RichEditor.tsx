@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import { editorExtensions } from '../editor/extensions';
 import { preserveBlankLines, serializeMarkdown } from '../editor/markdown';
@@ -35,14 +35,6 @@ export function RichEditor({ content, onChange, onReady }: Props) {
     shouldRerenderOnTransaction: false,
     editorProps: {
       attributes: { class: 'zen-prose', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Note content', spellcheck: 'true' },
-      // Ctrl+click follows a link; a plain click just places the caret, as in any editor.
-      handleClick: (view, position, event) => {
-        if (!(event.ctrlKey || event.metaKey)) return false;
-        const link = view.state.doc.resolve(position).marks().find(mark => mark.type.name === 'link');
-        if (!link) return false;
-        void openLink(link.attrs.href as string);
-        return true;
-      },
     },
     onUpdate: ({ editor: current }) => {
       const markdown = serializeMarkdown(current);
@@ -69,7 +61,19 @@ export function RichEditor({ content, onChange, onReady }: Props) {
     return () => { window.removeEventListener('keydown', sync); window.removeEventListener('keyup', sync); window.removeEventListener('blur', clear); };
   }, [scroller]);
 
-  return <div ref={setScroller} className="zen-scroll" onMouseDown={event => {
+  /**
+   * Links are opened only here, exactly once. The WebView's own handling of a
+   * Ctrl/middle click on an <a> (a new window) is always suppressed — handling it
+   * in ProseMirror's mouseup instead let the native click through, opening twice.
+   */
+  function followLink(event: MouseEvent<HTMLDivElement>) {
+    const anchor = (event.target as HTMLElement).closest?.('.zen-prose a[href]');
+    if (!anchor) return;
+    event.preventDefault();
+    if (event.type === 'click' && (event.ctrlKey || event.metaKey)) void openLink(anchor.getAttribute('href')!);
+  }
+
+  return <div ref={setScroller} className="zen-scroll" onClickCapture={followLink} onAuxClickCapture={followLink} onMouseDown={event => {
     // Clicks in the margins below the text continue writing at the end.
     if (event.target === event.currentTarget && editor) { event.preventDefault(); editor.commands.focus('end'); }
   }}>
