@@ -6,6 +6,7 @@ import { NodeSelection } from '@tiptap/pm/state';
 import { Bold, Check, ChevronDown, Code, Highlighter, Italic, Link2, List, ListChecks, Strikethrough, Unlink } from 'lucide-react';
 import { snappySpring } from '../motion';
 import { normalizeUrl } from '../editor/links';
+import { markCoversSelection, toggleMark } from '../editor/marks';
 
 const PLUGIN_KEY = 'selectionBubble';
 const BLOCKS = [['Text', 0], ['Heading 1', 1], ['Heading 2', 2], ['Heading 3', 3]] as const;
@@ -27,8 +28,9 @@ export function SelectionBubble({ editor, scrollTarget }: { editor: Editor; scro
   const state = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
-      bold: e.isActive('bold'), italic: e.isActive('italic'), strike: e.isActive('strike'), code: e.isActive('code'),
-      highlight: e.isActive('highlight'), link: e.isActive('link'), href: (e.getAttributes('link').href as string | undefined) ?? '',
+      // Edge spaces in a selection don't count, so pasted or double-clicked bold text reads as bold.
+      bold: markCoversSelection(e, 'bold'), italic: markCoversSelection(e, 'italic'), strike: markCoversSelection(e, 'strike'),
+      code: markCoversSelection(e, 'code'), highlight: markCoversSelection(e, 'highlight'), link: markCoversSelection(e, 'link'), href: (e.getAttributes('link').href as string | undefined) ?? '',
       level: ([1, 2, 3] as const).find(level => e.isActive('heading', { level })) ?? 0,
       bullet: e.isActive('bulletList'), task: e.isActive('taskList'),
     }),
@@ -88,11 +90,11 @@ export function SelectionBubble({ editor, scrollTarget }: { editor: Editor; scro
             <button type="submit" className="bubble-button" aria-label="Apply link" title="Apply · Enter"><Check size={15} /></button>
           </form>
         : <>
-            <Tool label="Bold" shortcut="Ctrl+B" active={state.bold} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={15} /></Tool>
-            <Tool label="Italic" shortcut="Ctrl+I" active={state.italic} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={15} /></Tool>
-            <Tool label="Strikethrough" shortcut="Ctrl+Shift+S" active={state.strike} onClick={() => editor.chain().focus().toggleStrike().run()}><Strikethrough size={15} /></Tool>
-            <Tool label="Code" shortcut="Ctrl+E" active={state.code} onClick={() => editor.chain().focus().toggleCode().run()}><Code size={15} /></Tool>
-            <Tool label="Highlight" shortcut="Ctrl+Shift+H" active={state.highlight} onClick={() => editor.chain().focus().toggleHighlight().run()}><Highlighter size={15} /></Tool>
+            <Tool label="Bold" shortcut="Ctrl+B" active={state.bold} onClick={() => toggleMark(editor, 'bold')}><Bold size={15} /></Tool>
+            <Tool label="Italic" shortcut="Ctrl+I" active={state.italic} onClick={() => toggleMark(editor, 'italic')}><Italic size={15} /></Tool>
+            <Tool label="Strikethrough" shortcut="Ctrl+Shift+S" active={state.strike} onClick={() => toggleMark(editor, 'strike')}><Strikethrough size={15} /></Tool>
+            <Tool label="Code" shortcut="Ctrl+E" active={state.code} onClick={() => toggleMark(editor, 'code')}><Code size={15} /></Tool>
+            <Tool label="Highlight" shortcut="Ctrl+Shift+H" active={state.highlight} onClick={() => toggleMark(editor, 'highlight')}><Highlighter size={15} /></Tool>
             <Tool label="Link" shortcut="Ctrl+K" active={state.link} onClick={startLink}><Link2 size={15} /></Tool>
             <span className="bubble-divider" />
             <div className="bubble-types">

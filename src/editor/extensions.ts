@@ -8,6 +8,7 @@ import { Placeholder } from '@tiptap/extensions';
 import { Markdown } from '@tiptap/markdown';
 import { preserveBlankLines } from './markdown';
 import { slashCommands, type SlashStore } from './slash';
+import { MarkShortcuts } from './marks';
 
 /**
  * Notes were written as plain text, where a single newline is a line break.
@@ -72,6 +73,7 @@ export function editorExtensions({ placeholder, slash }: { placeholder?: string;
     Highlight,
     Markdown.configure({ markedOptions: { gfm: true, breaks: true } }),
     MarkdownPaste,
+    MarkShortcuts,
     ToggleTask,
     ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
     ...(slash ? [slashCommands(slash)] : []),

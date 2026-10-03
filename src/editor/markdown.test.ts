@@ -4,6 +4,7 @@ import { Editor } from '@tiptap/core';
 import { editorExtensions } from './extensions';
 import { preserveBlankLines, serializeMarkdown } from './markdown';
 import { createSlashStore, filterSlashItems } from './slash';
+import { markCoversSelection } from './marks';
 
 function load(markdown: string) {
   return new Editor({ extensions: editorExtensions(), content: preserveBlankLines(markdown), contentType: 'markdown' });
@@ -115,6 +116,40 @@ describe('slash commands', () => {
     session!.select(session!.items[0]);
     expect(serializeMarkdown(editor)).toBe('Groceries\n\n- [ ] ');
     expect(slash.get()).toBeNull();
+    editor.destroy();
+  });
+});
+
+describe('mark state follows what the reader sees', () => {
+  // Paragraph content starts at position 1: "boldword" = 1..9, the space = 9..10, "next" = 10..14.
+  it('treats bold text as bold even when the selection includes an edge space', () => {
+    const editor = load('**boldword** next');
+    editor.commands.setTextSelection({ from: 1, to: 10 });
+    expect(markCoversSelection(editor, 'bold')).toBe(true);
+    expect(editor.isActive('bold')).toBe(false); // the stock check that misled the bubble
+    editor.commands.setTextSelection({ from: 1, to: 14 });
+    expect(markCoversSelection(editor, 'bold')).toBe(false);
+    editor.destroy();
+  });
+
+  it('makes Ctrl+B remove bold from such a selection instead of re-applying it', () => {
+    const editor = load('**boldword** next');
+    editor.commands.setTextSelection({ from: 1, to: 10 });
+    editor.commands.keyboardShortcut('Mod-b');
+    expect(serializeMarkdown(editor)).toBe('boldword next');
+    editor.commands.setTextSelection({ from: 1, to: 14 });
+    editor.commands.keyboardShortcut('Mod-b');
+    expect(serializeMarkdown(editor)).toBe('**boldword next**');
+    editor.destroy();
+  });
+
+  it('keeps Ctrl+B toggling the typing style with no selection', () => {
+    const editor = load('plain');
+    editor.commands.setTextSelection(6);
+    // A real keydown: the keyboardShortcut() command drops stored marks.
+    editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', ...(/Mac/.test(navigator.platform) ? { metaKey: true } : { ctrlKey: true }), bubbles: true, cancelable: true }));
+    type(editor, 'X');
+    expect(serializeMarkdown(editor)).toBe('plain**X**');
     editor.destroy();
   });
 });
