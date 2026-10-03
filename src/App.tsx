@@ -156,6 +156,8 @@ function Desk({ loaded }: { loaded: LoadResult }) {
     focusOrigin.current = element; setMenu({ id, x, y });
   }, []);
   function updateNote(id: string, patch: Partial<Pick<Note, 'title' | 'content' | 'symbol' | 'isPinned'>>) {
+    const current = notesRef.current.find(note => note.id === id);
+    if (current && (Object.keys(patch) as (keyof typeof patch)[]).every(key => current[key] === patch[key])) return;
     updateNotes(notesRef.current.map(note => note.id === id ? { ...note, ...patch, updatedAt: new Date().toISOString() } : note));
   }
   useEffect(() => {

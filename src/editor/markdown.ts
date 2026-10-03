@@ -34,3 +34,11 @@ function blankRun(count: number): string[] {
   const emptyParagraphs = newlines - 2;
   return ['', '', '', ...Array.from({ length: emptyParagraphs - 1 }, () => ['&nbsp;', '']).flat()];
 }
+
+/**
+ * The editor's Markdown, minus the empty paragraph the editor keeps after a
+ * trailing list or block (so there is always somewhere to click and type).
+ */
+export function serializeMarkdown(editor: { getMarkdown: () => string }): string {
+  return editor.getMarkdown().replace(/(?:\n|&nbsp;)+$/, '');
+}

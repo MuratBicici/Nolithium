@@ -68,3 +68,34 @@ export function textChange(before: string, after: string) {
   while (tail < before.length - start && tail < after.length - start && before[before.length - 1 - tail] === after[after.length - 1 - tail]) tail++;
   return { start, end: before.length - tail, insert: after.slice(start, after.length - tail) };
 }
+
+const BLOCK_PREFIX = /^\s*(?:#{1,6}\s+|>\s?|[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d+[.)]\s+)/;
+
+/** One Markdown line as a reader sees it: block prefixes and inline markers removed. */
+export function plainLine(line: string): string {
+  let text = line;
+  while (BLOCK_PREFIX.test(text)) text = text.replace(BLOCK_PREFIX, '');
+  if (/^\s*(?:[-*_]\s*){3,}$|^\s*(?:```|~~~)/.test(text)) return '';
+  return text
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__|~~|==)(.+?)\1/g, '$2')
+    .replace(/(^|[^\w*])\*(?!\s)(.+?)\*(?!\w)/g, '$1$2')
+    .replace(/(^|\W)_(?!\s)(.+?)_(?!\w)/g, '$1$2')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/&nbsp;/g, ' ')
+    .trim();
+}
+
+/** The note as plain text, for word and character counts. */
+export function plainText(markdown: string): string {
+  return markdown.split('\n').map(plainLine).join('\n').trim();
+}
+
+/** First meaningful line, shown on the desk tile. */
+export function plainPreview(markdown: string): string {
+  for (const line of markdown.split('\n')) {
+    const text = plainLine(line);
+    if (text) return text;
+  }
+  return '';
+}

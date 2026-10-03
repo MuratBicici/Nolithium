@@ -7,5 +7,6 @@ export default defineConfig({
   clearScreen: false,
   server: { port: 1420, strictPort: true, watch: { ignored: ['**/src-tauri/**'] } },
   envPrefix: ['VITE_', 'TAURI_'],
-  build: { target: 'es2022' },
+  // Served from disk by the desktop app, so a single larger chunk costs nothing over the network.
+  build: { target: 'es2022', chunkSizeWarningLimit: 1200 },
 });

@@ -2,14 +2,14 @@
 import { describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { editorExtensions } from './extensions';
-import { preserveBlankLines } from './markdown';
+import { preserveBlankLines, serializeMarkdown } from './markdown';
 
 function load(markdown: string) {
   return new Editor({ extensions: editorExtensions(), content: preserveBlankLines(markdown), contentType: 'markdown' });
 }
 function roundTrip(markdown: string) {
   const editor = load(markdown);
-  const out = editor.getMarkdown();
+  const out = serializeMarkdown(editor);
   editor.destroy();
   return out;
 }
@@ -56,5 +56,39 @@ describe('markdown fidelity', () => {
 
   it('leaves editor output untouched by the blank-line rewrite', () => {
     for (const markdown of Object.values(lossless)) expect(preserveBlankLines(roundTrip(markdown))).toBe(roundTrip(markdown));
+  });
+});
+
+function type(editor: Editor, text: string) {
+  for (const char of text) {
+    const { view } = editor;
+    const { from, to } = view.state.selection;
+    const handled = view.someProp('handleTextInput', input => input(view, from, to, char, () => view.state.tr.insertText(char, from, to)));
+    if (!handled) view.dispatch(view.state.tr.insertText(char, from, to));
+  }
+}
+
+describe('editor behaviour', () => {
+  it('ticks and unticks the checklist item under the caret with Ctrl+Enter', () => {
+    const editor = load('- [ ] milk\n- [ ] eggs');
+    editor.commands.setTextSelection(4);
+    editor.commands.keyboardShortcut('Mod-Enter');
+    expect(serializeMarkdown(editor)).toBe('- [x] milk\n- [ ] eggs');
+    editor.commands.keyboardShortcut('Mod-Enter');
+    expect(serializeMarkdown(editor)).toBe('- [ ] milk\n- [ ] eggs');
+    editor.destroy();
+  });
+
+  it('turns typed Markdown shortcuts into formatting', () => {
+    const editor = load('');
+    type(editor, '# Title');
+    expect(serializeMarkdown(editor)).toBe('# Title');
+    editor.commands.setContent('', { contentType: 'markdown' });
+    type(editor, '[ ] milk');
+    expect(serializeMarkdown(editor)).toBe('- [ ] milk');
+    editor.commands.setContent('', { contentType: 'markdown' });
+    type(editor, 'so **bold** move');
+    expect(serializeMarkdown(editor)).toBe('so **bold** move');
+    editor.destroy();
   });
 });

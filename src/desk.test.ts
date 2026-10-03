@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { continueChecklist, decodeDesk, DESK_KEY, deskGeometry, discardEmptyDrafts, LEGACY_KEY, loadDesk, textChange, wrapSelection } from './desk';
+import { continueChecklist, decodeDesk, DESK_KEY, deskGeometry, discardEmptyDrafts, LEGACY_KEY, loadDesk, plainPreview, plainText, textChange, wrapSelection } from './desk';
 
 it('discards empty new drafts but keeps existing notes and single-character drafts', () => {
   const base = { title: 'Untitled', symbol: '✎' as const, isPinned: false, updatedAt: '2026-10-01T10:00:00Z' };
@@ -70,4 +70,17 @@ it('finds the minimal replacement between two texts', () => {
   for (const [before, after] of cases) expect(apply(before, after)).toBe(after);
   expect(textChange('hello world', 'hello **world**')).toEqual({ start: 6, end: 11, insert: '**world**' });
   expect(textChange('- [ ] a\n- [ ] ', '- [ ] a\n')).toEqual({ start: 8, end: 14, insert: '' });
+});
+
+it('previews the first readable line without Markdown markers', () => {
+  expect(plainPreview('# Groceries\n- [ ] milk')).toBe('Groceries');
+  expect(plainPreview('\n\n---\n- [x] **done** task')).toBe('done task');
+  expect(plainPreview('> - [ ] ==quoted== `code` and [link](https://a.b)')).toBe('quoted code and link');
+  expect(plainPreview('```\nconst x = 1;\n```')).toBe('const x = 1;');
+  expect(plainPreview('snake_case and 2 * 3 * 4 stay')).toBe('snake_case and 2 * 3 * 4 stay');
+  expect(plainPreview('&nbsp;\n\n')).toBe('');
+});
+
+it('counts words in the readable text only', () => {
+  expect(plainText('# Title\n\n- [ ] one *two*\n\n---').split(/\s+/).filter(Boolean)).toEqual(['Title', 'one', 'two']);
 });
