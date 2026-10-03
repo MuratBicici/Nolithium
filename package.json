@@ -13,7 +13,7 @@
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",
     "@tauri-apps/api": "^2.0.0",
-    "@tauri-apps/plugin-opener": "^2.7.0",
+    "@tauri-apps/plugin-opener": "~2.5.0",
     "@tiptap/extension-hard-break": "^3.31.4",
     "@tiptap/extension-highlight": "^3.31.4",
     "@tiptap/extension-list": "^3.31.4",
