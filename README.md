@@ -64,6 +64,7 @@ The native Windows title bar is disabled. Nolithium's header supports dragging a
 - `src/App.tsx`: desk geometry, note state, autosave and overlays.
 - `src/index.css`: transparent root and current glass system.
 - `src/desk.ts`: migration, validation, geometry and text transformations.
+- `branding/`: the logo source PNG and its traced SVG. `src/components/Logo.tsx` draws the same path in `currentColor`; `app-icon.svg` places it on the glass plate, and `npx tauri icon app-icon.svg` regenerates every size in `src-tauri/icons/`.
 - `src/components/RichEditor.tsx`, `SelectionBubble.tsx`, `SlashMenu.tsx`: the Tiptap editor and its two overlays.
 - `src/editor/`: the shared extension list, Markdown fidelity helpers (`markdown.ts`, pinned by `markdown.test.ts`), `/` commands and safe link handling.
 - `src/storage.ts`: the `DeskStore` seam — file store for the desktop app, localStorage for the browser preview.

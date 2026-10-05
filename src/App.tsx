@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion';
-import { Feather, RotateCcw, X } from 'lucide-react';
+import { RotateCcw, X } from 'lucide-react';
+import { Logo } from './components/Logo';
 import { Appearance } from './components/Appearance';
 import { useGlassBlur } from './useGlassBlur';
 import { NotesBoard } from './components/NotesBoard';
@@ -179,7 +180,7 @@ function Desk({ loaded }: { loaded: LoadResult }) {
   return <div className={`desk-shell bg-transparent ${glass.native ? 'native-window' : ''}`} style={{ ...glass.style, '--glass-tint': color } as CSSProperties}>
     <div className="desk-underlay" aria-hidden="true" />
       <header className="desk-header" onMouseDown={dragWindow}>
-        <div className="desk-brand"><Feather size={16} strokeWidth={1.5} /><span>nolithium</span><span className="desk-divider" /><span className="desk-view">Desk</span></div>
+        <div className="desk-brand"><Logo height={24} weight={20} className="desk-logo" /><span>nolithium</span><span className="desk-divider" /><span className="desk-view">Desk</span></div>
         <div className="desk-tools"><motion.div className="desk-tools-fade" style={{ opacity: toolsOpacity }} inert={!!activeId}><span className="note-total">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span><Appearance color={color} onChange={setColor} blur={glass.blur} onBlurChange={glass.setBlur} blurError={glass.error} disabled={!!activeId} /></motion.div><WindowControls beforeClose={flushForClose} /></div>
       </header>
     <motion.div ref={deskRef} className="desk-home" style={{ opacity: deskOpacity, scale: deskScale }} inert={!!activeId || !!menu}>
