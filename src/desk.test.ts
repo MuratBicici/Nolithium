@@ -84,3 +84,10 @@ it('previews the first readable line without Markdown markers', () => {
 it('counts words in the readable text only', () => {
   expect(plainText('# Title\n\n- [ ] one *two*\n\n---').split(/\s+/).filter(Boolean)).toEqual(['Title', 'one', 'two']);
 });
+
+it('keeps the linked file of a note and ignores malformed links', () => {
+  const base = { id: 'a', title: 'notes.md', content: 'x', symbol: '✎', isPinned: false, updatedAt: '2026-10-18T10:00:00Z' };
+  expect(decodeDesk(JSON.stringify({ notes: [{ ...base, file: { path: 'C:\Notes\notes.md' } }] }))[0].file).toEqual({ path: 'C:\Notes\notes.md' });
+  expect(decodeDesk(JSON.stringify({ notes: [{ ...base, file: { path: 42 } }] }))[0].file).toBeUndefined();
+  expect(decodeDesk(JSON.stringify({ notes: [base] }))[0]).not.toHaveProperty('file');
+});

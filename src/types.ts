@@ -8,4 +8,6 @@ export interface Note {
   symbol: NoteSymbol;
   isPinned: boolean;
   updatedAt: string;
+  /** Set when the note was opened from a file ("Open with"); edits are written back to it. */
+  file?: { path: string };
 }

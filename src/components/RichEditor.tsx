@@ -10,6 +10,8 @@ import { createSlashStore } from '../editor/slash';
 interface Props {
   /** Markdown source; read once when the editor mounts. */
   content: string;
+  /** Bumped when `content` was reloaded from disk; the editor then shows it. */
+  revision?: number;
   onChange: (markdown: string) => void;
   onReady?: (editor: Editor | null) => void;
 }
@@ -18,7 +20,7 @@ interface Props {
  * WYSIWYG writing surface. Markdown stays the stored format: it is parsed on
  * mount and serialized only after a real edit, so opening a note never rewrites it.
  */
-export function RichEditor({ content, onChange, onReady }: Props) {
+export function RichEditor({ content, revision = 0, onChange, onReady }: Props) {
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   const change = useRef(onChange);
   change.current = onChange;
@@ -52,6 +54,14 @@ export function RichEditor({ content, onChange, onReady }: Props) {
     return () => onReady?.(null);
     // The editor instance is created once per mount.
   }, [editor]);
+
+  const shownRevision = useRef(revision);
+  useEffect(() => {
+    if (!editor || revision === shownRevision.current) return;
+    shownRevision.current = revision;
+    editor.commands.setContent(preserveBlankLines(content), { contentType: 'markdown', emitUpdate: false });
+    saved.current = serializeMarkdown(editor);
+  }, [editor, revision, content]);
 
   // While Ctrl is held, links show a pointer to hint they can be followed.
   useEffect(() => {

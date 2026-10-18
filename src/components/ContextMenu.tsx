@@ -26,7 +26,7 @@ export function ContextMenu({ note, x, y, onUpdate, onDelete, onClose }: Props) 
       <form className="rename-form" onSubmit={event => { event.preventDefault(); rename(); onClose(); }}><input id="rename-note" autoFocus value={title} onChange={event => setTitle(event.target.value)} onBlur={rename} maxLength={200} /><button className="micro-button" aria-label="Rename note"><Check size={15} /></button></form>
       <p className="context-label">Symbol</p><div className="symbol-palette">{SYMBOLS.map(symbol => <motion.button key={symbol} aria-label={`Use symbol ${symbol}`} aria-pressed={symbol === note.symbol} className={symbol === note.symbol ? 'selected' : ''} whileTap={{ scale: 0.92 }} transition={snappySpring} onClick={() => onUpdate({ symbol })}>{symbol}</motion.button>)}</div>
       <div className="context-divider" /><button className="context-action" onClick={() => { onUpdate({ isPinned: !note.isPinned }); onClose(); }}><Pin size={14} />{note.isPinned ? 'Unpin note' : 'Pin note'}{note.isPinned && <Check size={13} />}</button>
-      <button className="context-action destructive" onClick={onDelete}><Trash2 size={14} />Delete note</button>
+      <button className="context-action destructive" onClick={onDelete}><Trash2 size={14} />{note.file ? 'Remove from desk' : 'Delete note'}</button>
     </motion.div>
   </motion.div>;
 }

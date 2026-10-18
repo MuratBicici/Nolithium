@@ -1,10 +1,16 @@
 import type { Ref } from 'react';
 import { motion } from 'framer-motion';
-import { MoreHorizontal, Pin, Plus } from 'lucide-react';
+import { Link2, MoreHorizontal, Pin, Plus } from 'lucide-react';
 import { reorderSpring } from '../motion';
 import type { Note } from '../types';
 import { plainPreview } from '../desk';
+import { fileKind } from '../files';
 import { GlassOptics } from './GlassOptics';
+
+/** Plain-text files preview their first line as written; Markdown loses its markers. */
+const preview = (note: Note) => note.file && fileKind(note.file.path) === 'text'
+  ? note.content.split('\n').find(line => line.trim())?.trim() ?? ''
+  : plainPreview(note.content);
 
 interface Props {
   ref?: Ref<HTMLElement>;
@@ -34,7 +40,7 @@ export function GlassTile({ ref, note, slot, onOpen, onMenu }: Props) {
       onClick={event => onOpen(event.currentTarget)}
       onKeyDown={event => { if (note && (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); onMenu?.(rect.right - 20, rect.top + 32, event.currentTarget); } }}>
       <span className="tile-watermark" aria-hidden="true">{note ? note.symbol : <Plus strokeWidth={1} />}</span>
-      {note ? <div className="tile-caption"><h2>{note.title || 'Untitled'}</h2><p>{plainPreview(note.content) || 'Empty note'}</p></div>
+      {note ? <div className="tile-caption"><h2 title={note.file?.path}>{note.file && <Link2 size={11} className="tile-file" aria-label="Linked file" />}{note.title || 'Untitled'}</h2><p>{preview(note) || 'Empty note'}</p></div>
         : <span className="ghost-label">New note</span>}
     </button>
     {note && <><span className="tile-pin" aria-hidden="true">{note.isPinned && <Pin size={12} />}</span>

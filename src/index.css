@@ -232,3 +232,9 @@ kbd { font-family: inherit; color: #d1ddc98a; font-size: 9px; }
 .slash-title { flex: 1; }
 .slash-hint { color: #c7d2c766; font: 10.5px 'Cascadia Code', Consolas, monospace; }
 .zen-prose .suggestion { color: #c3d5c4; }
+.zen-plain { font-size: 14px; line-height: 1.7; white-space: pre; overflow: auto; }
+.save-state > svg { color: #bad6adb3; }
+.save-state.error > svg { color: #e0af82; }
+.status-action { margin-left: 8px; padding: 2px 7px; border-radius: 5px; background: #ffffff0f; color: #e3ece1; font-size: 9.5px; }
+.status-action:hover { background: #ffffff1c; }
+.tile-file { display: inline-block; margin-right: 5px; vertical-align: -1px; color: #c3d5c48c; }

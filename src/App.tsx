@@ -12,6 +12,8 @@ import { deskGeometry, discardEmptyDrafts } from './desk';
 import { deskStore, type LoadResult } from './storage';
 import type { Note } from './types';
 import { quickFade } from './motion';
+import { describeFileError, fileKind, fileName, samePath, watchOpenedFiles } from './files';
+import { useLinkedFiles } from './useLinkedFiles';
 
 type MenuState = { id: string; x: number; y: number };
 
@@ -64,6 +66,12 @@ function Desk({ loaded }: { loaded: LoadResult }) {
   // Saves run one at a time, in order, so an older write never lands after a newer one.
   const saving = useRef<Promise<boolean>>(Promise.resolve(true));
   const active = notes.find(note => note.id === activeId);
+  const activeRef = useRef<string | null>(null);
+  activeRef.current = activeId;
+  // A note to open once the editor that is currently open has finished closing.
+  const pendingOpen = useRef<string | null>(null);
+  const [closeRequest, setCloseRequest] = useState(0);
+  const [notice, setNotice] = useState('');
   const menuNote = notes.find(note => note.id === menu?.id);
 
   const persist = useCallback((): Promise<boolean> => {
@@ -75,13 +83,17 @@ function Desk({ loaded }: { loaded: LoadResult }) {
       () => { dirty.current = true; setSaveState('error'); return false; });
     return saving.current;
   }, [loaded.error]);
-  /** Before the window closes: write pending changes and wait for any save in flight. */
-  const flushForClose = useCallback(() => dirty.current ? persist() : saving.current, [persist]);
-
   const updateNotes = useCallback((next: Note[]) => {
     notesRef.current = next; dirty.current = true;
     setNotes(next); setSaveState(loaded.error ? 'error' : 'saving');
   }, [loaded.error]);
+  const files = useLinkedFiles(notes, notesRef);
+  const { load: loadFile, flush: flushFiles, bumpRevision } = files;
+  /** Before the window closes: write linked files and pending changes, and wait for saves in flight. */
+  const flushForClose = useCallback(async () => {
+    await flushFiles();
+    return dirty.current ? persist() : saving.current;
+  }, [flushFiles, persist]);
   useEffect(() => {
     const timer = setTimeout(() => { if (dirty.current) void persist(); }, 180);
     return () => clearTimeout(timer);
@@ -134,6 +146,12 @@ function Desk({ loaded }: { loaded: LoadResult }) {
     if (next.length !== notesRef.current.length) { notesRef.current = next; setNotes(next); }
     newNoteIds.current.clear();
     setActiveId(null); setIsClosing(false); setBoardSnapshot(null);
+    const queued = pendingOpen.current;
+    if (queued) {
+      pendingOpen.current = null;
+      requestAnimationFrame(() => { setBoardSnapshot(notesRef.current); setActiveId(queued); });
+      return;
+    }
     requestAnimationFrame(() => {
       const origin = focusOrigin.current;
       focusQuietly(origin?.isConnected ? origin : boardRef.current?.querySelector<HTMLButtonElement>('button'));
@@ -150,9 +168,44 @@ function Desk({ loaded }: { loaded: LoadResult }) {
     const next = [...notesRef.current, note];
     updateNotes(next); setBoardSnapshot(next); setMenu(null); setActiveId(note.id);
   }, [updateNotes]);
-  const openNote = useCallback((id: string, element: HTMLElement) => {
-    focusOrigin.current = element; setBoardSnapshot(notesRef.current); setActiveId(id);
+  /** Opens a note in the editor, first closing another one that is open. */
+  const showNote = useCallback((id: string) => {
+    if (activeRef.current === id) return;
+    if (activeRef.current) { pendingOpen.current = id; setCloseRequest(count => count + 1); return; }
+    setMenu(null); setBoardSnapshot(notesRef.current); setActiveId(id);
   }, []);
+  const replaceContent = useCallback((id: string, content: string) => {
+    updateNotes(notesRef.current.map(note => note.id === id && note.content !== content ? { ...note, content, updatedAt: new Date().toISOString() } : note));
+  }, [updateNotes]);
+  /** A linked note is refreshed from its file each time it opens; the file is the source of truth. */
+  const openNote = useCallback((id: string, element: HTMLElement) => {
+    focusOrigin.current = element;
+    const note = notesRef.current.find(item => item.id === id);
+    if (!note?.file) { showNote(id); return; }
+    void loadFile(note.file.path).then(file => replaceContent(id, file.text), () => {}).finally(() => showNote(id));
+  }, [loadFile, replaceContent, showNote]);
+  /** "Open with" / launch arguments: each file becomes (or reopens) a note linked to it. */
+  const openFiles = useCallback(async (paths: string[]) => {
+    let target: string | null = null;
+    for (const path of paths) {
+      try {
+        const file = await loadFile(path);
+        const existing = notesRef.current.find(note => note.file && samePath(note.file.path, file.path));
+        if (existing) {
+          replaceContent(existing.id, file.text);
+          bumpRevision(file.path);
+          target = existing.id;
+        } else {
+          const note: Note = { id: crypto.randomUUID(), title: file.name, content: file.text, symbol: fileKind(file.path) === 'markdown' ? '✎' : '☷',
+            isPinned: false, updatedAt: new Date().toISOString(), file: { path: file.path } };
+          updateNotes([...notesRef.current, note]);
+          target = note.id;
+        }
+      } catch (error) { setNotice(`Couldn't open ${fileName(path)}: ${describeFileError(error).message}`); }
+    }
+    if (target) showNote(target);
+  }, [bumpRevision, loadFile, replaceContent, showNote, updateNotes]);
+  useEffect(() => watchOpenedFiles(paths => { void openFiles(paths); }), [openFiles]);
   const openMenu = useCallback((id: string, x: number, y: number, element: HTMLElement) => {
     focusOrigin.current = element; setMenu({ id, x, y });
   }, []);
@@ -185,17 +238,22 @@ function Desk({ loaded }: { loaded: LoadResult }) {
       </header>
     <motion.div ref={deskRef} className="desk-home" style={{ opacity: deskOpacity, scale: deskScale }} inert={!!activeId || !!menu}>
       {saveState === 'error' && <div className="storage-alert" role="alert">{loaded.error || 'Changes could not be saved.'}<button onClick={exportNotes}>Export notes</button></div>}
+      {notice && <div className="storage-alert" role="alert">{notice}<button onClick={() => setNotice('')}>Dismiss</button></div>}
       <motion.div layoutScroll className="board-viewport" ref={boardRef}><NotesBoard notes={boardSnapshot ?? notes} columns={geometry.columns} slots={geometry.slots} onOpen={openNote} onMenu={openMenu} onCreate={createNote} /></motion.div>
       <footer className="desk-footer"><span><span className={`status-light ${saveState}`} />{saveState === 'saved' ? 'All changes saved' : saveState === 'saving' ? 'Saving…' : 'Not saved'}</span><span>Right-click to customize<span className="footer-separator">·</span><kbd>Ctrl N</kbd> new note</span></footer>
     </motion.div>
-    {active && <ZenEditor key={active.id} note={active} saveState={saveState} isDraft={newNoteIds.current.has(active.id) && !active.content.trim()} progress={progress} measureTile={measureTile} onChange={content => updateNote(active.id, { content })} onClosing={startClose} onClosed={finishClose} />}
+    {active && <ZenEditor key={active.id} note={active} saveState={saveState} isDraft={newNoteIds.current.has(active.id) && !active.content.trim()} progress={progress} measureTile={measureTile} onChange={content => updateNote(active.id, { content })} onClosing={startClose} onClosed={finishClose}
+      closeRequest={closeRequest}
+      file={active.file && { kind: fileKind(active.file.path), name: fileName(active.file.path), path: active.file.path, issue: files.issueFor(active.file.path), revision: files.revisionFor(active.file.path) }}
+      onReloadFile={() => { const path = active.file?.path; if (path) void loadFile(path).then(file => { replaceContent(active.id, file.text); bumpRevision(path); }, () => {}); }}
+      onKeepMine={() => { if (active.file) void files.keepMine(active.file.path); }} />}
     <AnimatePresence>{menu && menuNote && <ContextMenu key={menu.id} note={menuNote} x={menu.x} y={menu.y} onUpdate={patch => updateNote(menu.id, patch)} onClose={closeMenu} onDelete={() => {
       const index = notesRef.current.findIndex(note => note.id === menu.id);
       setDeleted({ note: notesRef.current[index], index });
       updateNotes(notesRef.current.filter(note => note.id !== menu.id)); setMenu(null);
     }} />}</AnimatePresence>
     <AnimatePresence>{deleted && <motion.div className="undo-toast glass-surface" role="status" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={quickFade}>
-      <span>Note deleted</span><button onClick={() => {
+      <span>{deleted.note.file ? 'Removed from desk · the file is untouched' : 'Note deleted'}</span><button onClick={() => {
         const next = [...notesRef.current]; next.splice(deleted.index, 0, deleted.note);
         updateNotes(next); setDeleted(null);
       }}><RotateCcw size={13} />Undo</button><button aria-label="Dismiss undo" className="micro-button" onClick={() => setDeleted(null)}><X size={14} /></button>

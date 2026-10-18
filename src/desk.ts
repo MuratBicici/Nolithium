@@ -12,8 +12,10 @@ function readNote(value: unknown): Note {
   const note = value as Record<string, unknown>;
   if (typeof note.id !== 'string' || !note.id || typeof note.title !== 'string' || typeof note.content !== 'string'
     || typeof note.isPinned !== 'boolean' || typeof note.updatedAt !== 'string' || !Number.isFinite(Date.parse(note.updatedAt))) throw new Error('Invalid note');
+  const file = note.file as { path?: unknown } | undefined;
   return { id: note.id, title: note.title, content: note.content, isPinned: note.isPinned, updatedAt: note.updatedAt,
-    symbol: SYMBOLS.includes(note.symbol as Note['symbol']) ? note.symbol as Note['symbol'] : '✎' };
+    symbol: SYMBOLS.includes(note.symbol as Note['symbol']) ? note.symbol as Note['symbol'] : '✎',
+    ...(file && typeof file.path === 'string' && file.path ? { file: { path: file.path } } : {}) };
 }
 
 export function decodeDesk(raw: string): Note[] {

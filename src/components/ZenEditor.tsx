@@ -1,12 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { animate, motion, useReducedMotion, useTransform, type AnimationPlaybackControls, type MotionValue } from 'framer-motion';
-import { Check, Copy, FileCode, X } from 'lucide-react';
+import { Check, Copy, FileCode, Link2, X } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { Note } from '../types';
 import { closeSpring, openSpring, reducedFade } from '../motion';
 import { continueChecklist, plainText, textChange, wrapSelection } from '../desk';
 import { GlassOptics } from './GlassOptics';
 import { RichEditor } from './RichEditor';
+import type { FileKind } from '../files';
+import type { FileIssue } from '../useLinkedFiles';
 
 export type Rect = { top: number; right: number; bottom: number; left: number };
 type Insets = Rect;
@@ -22,6 +24,12 @@ interface Props {
   onChange: (content: string) => void;
   onClosing: () => void;
   onClosed: () => void;
+  /** Incremented by the desk to close this editor (e.g. to open a file in its place). */
+  closeRequest?: number;
+  /** Present when the note is linked to a file opened with Nolithium. */
+  file?: { kind: FileKind; name: string; path: string; issue?: FileIssue; revision: number };
+  onReloadFile?: () => void;
+  onKeepMine?: () => void;
 }
 
 /**
@@ -47,7 +55,9 @@ const EDITOR_RADIUS = 19;
  * rect to the full frame, and the content, laid out once at full size, is revealed
  * through a matching clip. Borders, radii and text stay crisp at every frame.
  */
-export function ZenEditor({ note, saveState, isDraft, progress, measureTile, onChange, onClosing, onClosed }: Props) {
+export function ZenEditor({ note, saveState, isDraft, progress, measureTile, onChange, onClosing, onClosed, closeRequest = 0, file, onReloadFile, onKeepMine }: Props) {
+  // Plain-text files (.txt, .json, .ini…) are edited as raw text and written back exactly.
+  const plainFile = file?.kind === 'text';
   const reduced = useReducedMotion();
   const frameRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -57,7 +67,7 @@ export function ZenEditor({ note, saveState, isDraft, progress, measureTile, onC
   const [closing, setClosing] = useState(false);
   const [copyState, setCopyState] = useState('Copy all');
   // Rich (WYSIWYG) by default; raw Markdown only when explicitly asked for.
-  const [mode, setMode] = useState<'rich' | 'markdown'>('rich');
+  const [mode, setMode] = useState<'rich' | 'markdown'>(plainFile ? 'markdown' : 'rich');
   const editorRef = useRef<Editor | null>(null);
 
   const top = useTransform(progress, p => from.current.top * (1 - p));
@@ -106,7 +116,11 @@ export function ZenEditor({ note, saveState, isDraft, progress, measureTile, onC
     controls.current = animate(progress, 0, { ...(reduced ? reducedFade : closeSpring), onComplete: finish });
   }
 
+  const initialCloseRequest = useRef(closeRequest);
+  useEffect(() => { if (closeRequest !== initialCloseRequest.current) close(); }, [closeRequest]);
+
   function keyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (plainFile) return; // A .txt or .json file gets no Markdown markers.
     const field = event.currentTarget;
     const key = event.key.toLowerCase();
     let edit: { text: string; start: number; end: number } | null = null;
@@ -132,7 +146,7 @@ export function ZenEditor({ note, saveState, isDraft, progress, measureTile, onC
       if (mode === 'rich') editor?.commands.selectAll(); else { textRef.current?.focus(); textRef.current?.select(); }
     }
   }
-  function toggleMode() { setMode(current => current === 'rich' ? 'markdown' : 'rich'); }
+  function toggleMode() { if (!plainFile) setMode(current => current === 'rich' ? 'markdown' : 'rich'); }
 
   // Window-level, so Esc and Ctrl+Shift+M work wherever focus is — including <body>
   // after a click on the status bar or other non-focusable parts of the editor.
@@ -156,7 +170,9 @@ export function ZenEditor({ note, saveState, isDraft, progress, measureTile, onC
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-  const readable = plainText(note.content);
+  const readable = plainFile ? note.content.trim() : plainText(note.content);
+  const status = file?.issue ? file.issue.message
+    : isDraft ? 'Draft' : saveState === 'saved' ? (file ? `Saved to ${file.name}` : 'Saved') : saveState === 'saving' ? 'Saving…' : 'Not saved';
   const words = readable ? readable.split(/\s+/u).length : 0;
   return <div className="zen-layer" style={{ pointerEvents: closing ? 'none' : 'auto' }}>
     <button className="zen-outside" tabIndex={-1} aria-label="Close editor" onClick={close} />
@@ -167,13 +183,14 @@ export function ZenEditor({ note, saveState, isDraft, progress, measureTile, onC
       </motion.div>
       <motion.div className="zen-content" style={{ clipPath }}>
         <motion.div className="zen-inner" style={{ opacity: contentOpacity, y: contentY }}>
-          <div className="zen-actions"><button className={`micro-button ${mode === 'markdown' ? 'is-active' : ''}`} onClick={toggleMode} aria-pressed={mode === 'markdown'} aria-label="View as Markdown" title="View as Markdown · Ctrl+Shift+M"><FileCode size={16} /></button><button className="micro-button" onClick={copy} aria-label={copyState} title={copyState}>{copyState === 'Copied' ? <Check size={16} /> : <Copy size={16} />}</button><button className="micro-button" onClick={close} aria-label="Close editor" title="Close · Esc"><X size={19} /></button></div>
+          <div className="zen-actions">{!plainFile && <button className={`micro-button ${mode === 'markdown' ? 'is-active' : ''}`} onClick={toggleMode} aria-pressed={mode === 'markdown'} aria-label="View as Markdown" title="View as Markdown · Ctrl+Shift+M"><FileCode size={16} /></button>}<button className="micro-button" onClick={copy} aria-label={copyState} title={copyState}>{copyState === 'Copied' ? <Check size={16} /> : <Copy size={16} />}</button><button className="micro-button" onClick={close} aria-label="Close editor" title="Close · Esc"><X size={19} /></button></div>
           <motion.div key={mode} className="zen-surface-switch" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
             {mode === 'rich'
-              ? <RichEditor content={note.content} onChange={onChange} onReady={editor => { editorRef.current = editor; }} />
-              : <textarea ref={textRef} className="zen-text" aria-label="Note content (Markdown)" placeholder="Write…" value={note.content} onChange={event => onChange(event.target.value)} onKeyDown={keyDown} spellCheck={false} />}
+              ? <RichEditor content={note.content} revision={file?.revision ?? 0} onChange={onChange} onReady={editor => { editorRef.current = editor; }} />
+              : <textarea ref={textRef} className={`zen-text ${plainFile ? 'zen-plain' : ''}`} aria-label={plainFile ? `Contents of ${file!.name}` : 'Note content (Markdown)'} placeholder="Write…" value={note.content} onChange={event => onChange(event.target.value)} onKeyDown={keyDown} spellCheck={!plainFile} wrap={plainFile ? 'off' : 'soft'} />}
           </motion.div>
-          <footer className="zen-status"><span className={`save-state ${saveState}`} role="status"><span />{isDraft ? 'Draft' : saveState === 'saved' ? 'Saved' : saveState === 'saving' ? 'Saving…' : 'Not saved'}</span><span>{words} {words === 1 ? 'word' : 'words'}<i />{Array.from(readable).length} characters</span></footer>
+          <footer className="zen-status"><span className={`save-state ${file?.issue ? 'error' : saveState}`} role="status" title={file?.path}>{file ? <Link2 size={11} /> : <span />}{status}
+            {file?.issue?.kind === 'conflict' && <><button className="status-action" onClick={onReloadFile}>Reload from disk</button><button className="status-action" onClick={onKeepMine}>Keep mine</button></>}</span><span>{words} {words === 1 ? 'word' : 'words'}<i />{Array.from(readable).length} characters</span></footer>
         </motion.div>
       </motion.div>
     </div>
