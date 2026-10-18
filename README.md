@@ -67,6 +67,8 @@ The native Windows title bar is disabled. Nolithium's header supports dragging a
 - `branding/`: the logo source PNG and its traced SVG. `src/components/Logo.tsx` draws the same path in `currentColor`; `app-icon.svg` places it on the glass plate, and `npx tauri icon app-icon.svg` regenerates every size in `src-tauri/icons/`.
 - `src/components/RichEditor.tsx`, `SelectionBubble.tsx`, `SlashMenu.tsx`: the Tiptap editor and its two overlays.
 - `src/editor/`: the shared extension list, Markdown fidelity helpers (`markdown.ts`, pinned by `markdown.test.ts`), `/` commands and safe link handling.
+- `src/files.ts`, `src/useLinkedFiles.ts`: "Open with" — notes linked to files, written back exactly.
+- `src/useUpdater.ts`, `src/components/UpdatePrompt.tsx`: ask-first in-app updates.
 - `src/storage.ts`: the `DeskStore` seam — file store for the desktop app, localStorage for the browser preview.
 - `src-tauri/src/storage.rs`, `window_state.rs`: atomic file writes with backup, and window bounds.
 
@@ -79,6 +81,36 @@ On the first run with file storage, notes are migrated from the WebView's localS
 Notes are stored as Markdown. The editor parses it on open and serializes only after a real edit, so opening a note never rewrites it; single newlines stay line breaks and blank lines of older plain-text notes are preserved.
 
 All persistence goes through the `DeskStore` interface in `src/storage.ts`. Notes carry stable ids and an `updatedAt` stamped on every change, which a future cloud store can use to merge.
+
+## Open with
+
+The installer lists Nolithium under **Open with** for every file and suggests it for `.md`, `.markdown` and `.txt`; it never becomes the default app. An opened file becomes a desk note linked to it (a second launch hands the file to the running window):
+
+- Edits are written back about 250 ms after typing, through a temporary file renamed over the original — no backup is left beside it. Encoding (UTF-8, UTF-8 BOM, UTF-16, or the system ANSI code page) and line endings are kept byte for byte; ANSI text that no longer fits its code page is saved as UTF-8.
+- Markdown files open in the rich editor. Every other text file (.txt, .json, .ini…) opens as raw text and is written back exactly; Markdown shortcuts are off there.
+- The file is the source of truth: a linked note is re-read each time it opens. If another program changed it meanwhile, nothing is overwritten — the editor offers **Reload from disk** or **Keep mine**.
+- Binary files and files over 16 MB are refused. Only files the user opened can be read or written (`src-tauri/src/files.rs`). Removing a linked note from the desk leaves the file untouched.
+
+## Updates and releases
+
+The app checks quietly a few seconds after launch and, if a newer version exists, asks before downloading anything. **Appearance → Check for updates** checks on demand. Installing saves notes and linked files first, then the installer runs in passive mode and restarts the app.
+
+Updates are read from `https://github.com/MuratBicici/Nolithium/releases/latest/download/latest.json`. While the repository is private (until 1.0.0) that URL answers 404, which the app treats as "no update" — so every 0.x build with the updater will pick up 1.0.0 once the repository is public and the release is published.
+
+**Signing key.** Updates are signed; the app only installs files signed with the key whose public half is in `tauri.conf.json`. The private key is `%USERPROFILE%\.tauri\nolithium.key` (no password) and is not in this repository. Back it up somewhere safe: without it no installed copy can ever be updated again.
+
+**One-time setup** (repository → Settings → Secrets and variables → Actions):
+
+- `TAURI_SIGNING_PRIVATE_KEY` — the contents of `nolithium.key`
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — empty
+
+**Releasing a version:**
+
+1. Bump `version` in `src-tauri/tauri.conf.json`, `package.json` and `src-tauri/Cargo.toml`, and commit.
+2. `git tag v0.3.0 && git push origin main v0.3.0` — the Release workflow tests, builds and signs the installer and creates a **draft** release with `latest.json`.
+3. Edit the draft's notes (the first non-heading line appears in the update prompt) and publish it. Only then do installed apps see the update.
+
+To build a signed installer locally: set `TAURI_SIGNING_PRIVATE_KEY` to the key's path and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` to empty, then `npx tauri build`.
 
 ## Validation
 

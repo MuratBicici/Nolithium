@@ -1,7 +1,7 @@
 {
   "name": "nolithium",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -14,6 +14,8 @@
     "@floating-ui/dom": "^1.8.0",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-opener": "~2.7.0",
+    "@tauri-apps/plugin-process": "~2.4.0",
+    "@tauri-apps/plugin-updater": "~2.14.0",
     "@tiptap/extension-hard-break": "^3.31.4",
     "@tiptap/extension-highlight": "^3.31.4",
     "@tiptap/extension-list": "^3.31.4",

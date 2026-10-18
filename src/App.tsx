@@ -14,6 +14,10 @@ import type { Note } from './types';
 import { quickFade } from './motion';
 import { describeFileError, fileKind, fileName, samePath, watchOpenedFiles } from './files';
 import { useLinkedFiles } from './useLinkedFiles';
+import { useUpdater } from './useUpdater';
+import { UpdatePrompt } from './components/UpdatePrompt';
+import { isTauri } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
 
 type MenuState = { id: string; x: number; y: number };
 
@@ -94,6 +98,13 @@ function Desk({ loaded }: { loaded: LoadResult }) {
     await flushFiles();
     return dirty.current ? persist() : saving.current;
   }, [flushFiles, persist]);
+  // Installing an update closes the app, so it saves exactly like closing the window.
+  const updater = useUpdater(flushForClose);
+  const [version, setVersion] = useState('');
+  useEffect(() => { if (isTauri()) void getVersion().then(setVersion, () => {}); }, []);
+  const update = updater.state;
+  const updateLabel = update.phase === 'checking' ? 'Checking…' : update.phase === 'current' ? 'Up to date'
+    : update.phase === 'available' ? `${update.update.version} available` : 'Check for updates';
   useEffect(() => {
     const timer = setTimeout(() => { if (dirty.current) void persist(); }, 180);
     return () => clearTimeout(timer);
@@ -234,7 +245,8 @@ function Desk({ loaded }: { loaded: LoadResult }) {
     <div className="desk-underlay" aria-hidden="true" />
       <header className="desk-header" onMouseDown={dragWindow}>
         <div className="desk-brand"><Logo height={24} weight={20} className="desk-logo" /><span>nolithium</span><span className="desk-divider" /><span className="desk-view">Desk</span></div>
-        <div className="desk-tools"><motion.div className="desk-tools-fade" style={{ opacity: toolsOpacity }} inert={!!activeId}><span className="note-total">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span><Appearance color={color} onChange={setColor} blur={glass.blur} onBlurChange={glass.setBlur} blurError={glass.error} disabled={!!activeId} /></motion.div><WindowControls beforeClose={flushForClose} /></div>
+        <div className="desk-tools"><motion.div className="desk-tools-fade" style={{ opacity: toolsOpacity }} inert={!!activeId}><span className="note-total">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span><Appearance color={color} onChange={setColor} blur={glass.blur} onBlurChange={glass.setBlur} blurError={glass.error} disabled={!!activeId}
+          about={version ? { version, label: updateLabel, busy: update.phase === 'checking' || update.phase === 'downloading' || update.phase === 'installing', onCheck: () => { void updater.check(true); } } : undefined} /></motion.div><WindowControls beforeClose={flushForClose} /></div>
       </header>
     <motion.div ref={deskRef} className="desk-home" style={{ opacity: deskOpacity, scale: deskScale }} inert={!!activeId || !!menu}>
       {saveState === 'error' && <div className="storage-alert" role="alert">{loaded.error || 'Changes could not be saved.'}<button onClick={exportNotes}>Export notes</button></div>}
@@ -252,6 +264,7 @@ function Desk({ loaded }: { loaded: LoadResult }) {
       setDeleted({ note: notesRef.current[index], index });
       updateNotes(notesRef.current.filter(note => note.id !== menu.id)); setMenu(null);
     }} />}</AnimatePresence>
+    <UpdatePrompt state={update} onInstall={() => { void updater.install(); }} onDismiss={updater.dismiss} />
     <AnimatePresence>{deleted && <motion.div className="undo-toast glass-surface" role="status" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={quickFade}>
       <span>{deleted.note.file ? 'Removed from desk · the file is untouched' : 'Note deleted'}</span><button onClick={() => {
         const next = [...notesRef.current]; next.splice(deleted.index, 0, deleted.note);

@@ -13,10 +13,13 @@ const PRESETS = [
 const WIDTH = 272;
 const MARGIN = 12;
 
-interface Props { color: string; onChange: (color: string) => void; blur: number; onBlurChange: (value: number) => void; blurError: string; disabled?: boolean }
+/** Version line and update check; desktop app only. */
+export interface About { version: string; label: string; busy: boolean; onCheck: () => void }
+
+interface Props { color: string; onChange: (color: string) => void; blur: number; onBlurChange: (value: number) => void; blurError: string; disabled?: boolean; about?: About }
 
 /** Non-modal popover: the desk stays visible so every change previews live. */
-export function Appearance({ color, onChange, blur, onBlurChange, blurError, disabled }: Props) {
+export function Appearance({ color, onChange, blur, onBlurChange, blurError, disabled, about }: Props) {
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   // A fresh key per opening, so reopening mid-exit mounts (and focuses) a new popover.
@@ -38,14 +41,14 @@ export function Appearance({ color, onChange, blur, onBlurChange, blurError, dis
     <button ref={trigger} className={`micro-button ${open ? 'is-active' : ''}`} title="Appearance" aria-label="Appearance" aria-haspopup="dialog" aria-expanded={open}
       onClick={() => { if (!open) setSession(value => value + 1); setOpen(!open); }}><Palette size={17} /></button>
     <AnimatePresence>
-      {open && <Popover key={session} trigger={trigger} color={color} blur={blur} onColor={change} onBlur={onBlurChange} onClose={close}
+      {open && <Popover key={session} trigger={trigger} color={color} blur={blur} onColor={change} onBlur={onBlurChange} onClose={close} about={about}
         error={blurError || (error ? 'Color applied, but could not be saved.' : '')} />}
     </AnimatePresence>
   </>;
 }
 
-function Popover({ trigger, color, blur, onColor, onBlur, onClose, error }: {
-  trigger: RefObject<HTMLButtonElement | null>; color: string; blur: number; error: string;
+function Popover({ trigger, color, blur, onColor, onBlur, onClose, error, about }: {
+  trigger: RefObject<HTMLButtonElement | null>; color: string; blur: number; error: string; about?: About;
   onColor: (value: string) => void; onBlur: (value: number) => void; onClose: (returnFocus: boolean) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -130,5 +133,6 @@ function Popover({ trigger, color, blur, onColor, onBlur, onClose, error }: {
       aria-valuetext={`${blur}%${blur === 0 ? ', clear glass' : ''}`} onChange={event => onBlur(Number(event.target.value))} />
     <div className="blur-endpoints"><span>Clear</span><span>Frosted</span></div>
     {error && <p className="appearance-error" role="alert">{error}</p>}
+    {about && <div className="appearance-about"><span>Nolithium {about.version}</span><button className="about-check" onClick={about.onCheck} disabled={about.busy}>{about.label}</button></div>}
   </motion.div>;
 }
