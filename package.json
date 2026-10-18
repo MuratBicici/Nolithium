@@ -1,7 +1,9 @@
 {
   "name": "nolithium",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
+  "license": "MIT",
+  "author": "Murat Emre Biçici",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

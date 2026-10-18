@@ -1,8 +1,10 @@
 [package]
 name = "nolithium"
-version = "0.2.0"
+version = "0.3.0"
 description = "A quiet glass desk for notes"
-authors = ["Nolithium"]
+authors = ["Murat Emre Biçici"]
+license = "MIT"
+repository = "https://github.com/MuratBicici/Nolithium"
 edition = "2021"
 
 [lib]
