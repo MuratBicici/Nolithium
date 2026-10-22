@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion';
 import { RotateCcw, X } from 'lucide-react';
 import { Logo } from './components/Logo';
@@ -15,6 +15,7 @@ import { quickFade } from './motion';
 import { describeFileError, fileKind, fileName, samePath, watchOpenedFiles } from './files';
 import { useLinkedFiles } from './useLinkedFiles';
 import { useUpdater } from './useUpdater';
+import { ViewSwitch, type DeskView } from './components/ViewSwitch';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { isTauri } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
@@ -70,12 +71,18 @@ function Desk({ loaded }: { loaded: LoadResult }) {
   // Saves run one at a time, in order, so an older write never lands after a newer one.
   const saving = useRef<Promise<boolean>>(Promise.resolve(true));
   const active = notes.find(note => note.id === activeId);
+  const boardNotes = boardSnapshot ?? notes;
   const activeRef = useRef<string | null>(null);
   activeRef.current = activeId;
   // A note to open once the editor that is currently open has finished closing.
   const pendingOpen = useRef<string | null>(null);
   const [closeRequest, setCloseRequest] = useState(0);
   const [notice, setNotice] = useState('');
+  // Files opened with Nolithium live in their own section; the switch shows only once there are some.
+  const [view, setView] = useState<DeskView>('notes');
+  const hasFiles = notes.some(note => note.file);
+  const shownView: DeskView = hasFiles ? view : 'notes';
+  const sectionNotes = useMemo(() => boardNotes.filter(note => !!note.file === (shownView === 'files')), [boardNotes, shownView]);
   const menuNote = notes.find(note => note.id === menu?.id);
 
   const persist = useCallback((): Promise<boolean> => {
@@ -160,7 +167,10 @@ function Desk({ loaded }: { loaded: LoadResult }) {
     const queued = pendingOpen.current;
     if (queued) {
       pendingOpen.current = null;
-      requestAnimationFrame(() => { setBoardSnapshot(notesRef.current); setActiveId(queued); });
+      requestAnimationFrame(() => {
+        setView(notesRef.current.find(note => note.id === queued)?.file ? 'files' : 'notes');
+        setBoardSnapshot(notesRef.current); setActiveId(queued);
+      });
       return;
     }
     requestAnimationFrame(() => {
@@ -177,12 +187,14 @@ function Desk({ loaded }: { loaded: LoadResult }) {
     const note: Note = { id: crypto.randomUUID(), title: 'Untitled', content: '', symbol: '✎', isPinned: false, updatedAt: new Date().toISOString() };
     newNoteIds.current.add(note.id);
     const next = [...notesRef.current, note];
-    updateNotes(next); setBoardSnapshot(next); setMenu(null); setActiveId(note.id);
+    updateNotes(next); setBoardSnapshot(next); setMenu(null); setView('notes'); setActiveId(note.id);
   }, [updateNotes]);
   /** Opens a note in the editor, first closing another one that is open. */
   const showNote = useCallback((id: string) => {
     if (activeRef.current === id) return;
     if (activeRef.current) { pendingOpen.current = id; setCloseRequest(count => count + 1); return; }
+    // Its tile must be on screen for the open animation, so show the section it belongs to.
+    setView(notesRef.current.find(note => note.id === id)?.file ? 'files' : 'notes');
     setMenu(null); setBoardSnapshot(notesRef.current); setActiveId(id);
   }, []);
   const replaceContent = useCallback((id: string, content: string) => {
@@ -244,14 +256,20 @@ function Desk({ loaded }: { loaded: LoadResult }) {
   return <div className={`desk-shell bg-transparent ${glass.native ? 'native-window' : ''}`} style={{ ...glass.style, '--glass-tint': color } as CSSProperties}>
     <div className="desk-underlay" aria-hidden="true" />
       <header className="desk-header" onMouseDown={dragWindow}>
-        <div className="desk-brand"><Logo height={24} weight={20} className="desk-logo" /><span>nolithium</span><span className="desk-divider" /><span className="desk-view">Desk</span></div>
-        <div className="desk-tools"><motion.div className="desk-tools-fade" style={{ opacity: toolsOpacity }} inert={!!activeId}><span className="note-total">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span><Appearance color={color} onChange={setColor} blur={glass.blur} onBlurChange={glass.setBlur} blurError={glass.error} disabled={!!activeId}
+        <div className="desk-brand"><Logo height={24} weight={20} className="desk-logo" /><span>nolithium</span><span className="desk-divider" />{hasFiles ? <ViewSwitch view={shownView} onChange={setView} disabled={!!activeId} /> : <span className="desk-view">Desk</span>}</div>
+        <div className="desk-tools"><motion.div className="desk-tools-fade" style={{ opacity: toolsOpacity }} inert={!!activeId}><span className="note-total">{(() => { const count = notes.filter(note => !!note.file === (shownView === 'files')).length; return `${count} ${shownView === 'files' ? (count === 1 ? 'file' : 'files') : (count === 1 ? 'note' : 'notes')}`; })()}</span><Appearance color={color} onChange={setColor} blur={glass.blur} onBlurChange={glass.setBlur} blurError={glass.error} disabled={!!activeId}
           about={version ? { version, label: updateLabel, busy: update.phase === 'checking' || update.phase === 'downloading' || update.phase === 'installing', onCheck: () => { void updater.check(true); } } : undefined} /></motion.div><WindowControls beforeClose={flushForClose} /></div>
       </header>
     <motion.div ref={deskRef} className="desk-home" style={{ opacity: deskOpacity, scale: deskScale }} inert={!!activeId || !!menu}>
       {saveState === 'error' && <div className="storage-alert" role="alert">{loaded.error || 'Changes could not be saved.'}<button onClick={exportNotes}>Export notes</button></div>}
       {notice && <div className="storage-alert" role="alert">{notice}<button onClick={() => setNotice('')}>Dismiss</button></div>}
-      <motion.div layoutScroll className="board-viewport" ref={boardRef}><NotesBoard notes={boardSnapshot ?? notes} columns={geometry.columns} slots={geometry.slots} onOpen={openNote} onMenu={openMenu} onCreate={createNote} /></motion.div>
+      <motion.div layoutScroll className="board-viewport" ref={boardRef}>
+        {/* Switching sections crossfades the whole board instead of flying every tile. */}
+        <motion.div key={shownView} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}>
+          <NotesBoard notes={sectionNotes} columns={geometry.columns} slots={geometry.slots} onOpen={openNote} onMenu={openMenu} onCreate={createNote}
+            showCreate={shownView === 'notes'} label={shownView === 'files' ? 'Opened files' : 'Notes desk'} />
+        </motion.div>
+      </motion.div>
       <footer className="desk-footer"><span><span className={`status-light ${saveState}`} />{saveState === 'saved' ? 'All changes saved' : saveState === 'saving' ? 'Saving…' : 'Not saved'}</span><span>Right-click to customize<span className="footer-separator">·</span><kbd>Ctrl N</kbd> new note</span></footer>
     </motion.div>
     {active && <ZenEditor key={active.id} note={active} saveState={saveState} isDraft={newNoteIds.current.has(active.id) && !active.content.trim()} progress={progress} measureTile={measureTile} onChange={content => updateNote(active.id, { content })} onClosing={startClose} onClosed={finishClose}
@@ -261,6 +279,7 @@ function Desk({ loaded }: { loaded: LoadResult }) {
       onKeepMine={() => { if (active.file) void files.keepMine(active.file.path); }} />}
     <AnimatePresence>{menu && menuNote && <ContextMenu key={menu.id} note={menuNote} x={menu.x} y={menu.y} onUpdate={patch => updateNote(menu.id, patch)} onClose={closeMenu} onDelete={() => {
       const index = notesRef.current.findIndex(note => note.id === menu.id);
+      if (index < 0) { setMenu(null); return; } // already removed (e.g. a menu still fading out)
       setDeleted({ note: notesRef.current[index], index });
       updateNotes(notesRef.current.filter(note => note.id !== menu.id)); setMenu(null);
     }} />}</AnimatePresence>

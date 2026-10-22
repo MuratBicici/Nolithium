@@ -11,7 +11,7 @@ Notes live as square glass tiles on a desk. Click one and it opens into a calm, 
 ## Features
 
 - **Writing without symbols.** Headings, bold, italic, highlight, links, lists, clickable checklists, quotes and code blocks appear as formatting. Select text for a small style bubble, or type `/` for blocks. Markdown shortcuts (`# `, `- `, `[] `…) still work if you know them.
-- **Open with Nolithium.** Right-click a `.md`, `.txt` or any other text file → *Open with* → Nolithium. It opens as a note linked to the file; your edits are saved back to the file, in its original encoding and line endings.
+- **Open with Nolithium.** Right-click a `.md`, `.txt` or any other text file → *Open with* → Nolithium. It opens as a note linked to the file, in its own **Files** section next to your notes; your edits are saved back to the file, in its original encoding and line endings.
 - **Your desk, your look.** Pick a glass colour (or mix your own) and how frosted it is; pin, rename and mark notes with a symbol.
 - **Safe by default.** Everything saves as you type, closing waits for pending saves, and a file changed by another program is never overwritten without asking.
 - **Updates that ask first.** When a new version is out, Nolithium offers it; nothing is downloaded until you agree.
@@ -34,6 +34,7 @@ Requires Windows 10 or 11 (64-bit). The WebView2 runtime is built into Windows 1
 | Style selected text | Select it, then use the bubble (or **Ctrl+B**, **Ctrl+I**, **Ctrl+K** for a link) |
 | Insert a heading, list, checklist… | Type `/` |
 | Tick a checklist item | Click its box, or **Ctrl+Enter** |
+| Switch between notes and opened files | **Notes / Files** at the top (appears once a file is opened) |
 | See the raw Markdown | **Ctrl+Shift+M** |
 | Follow a link | **Ctrl+click** |
 | Glass colour, blur, version, updates | The palette button at the top right |
