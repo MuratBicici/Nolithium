@@ -1,7 +1,7 @@
 {
   "name": "nolithium",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "license": "MIT",
   "author": "Murat Emre Biçici",
   "type": "module",

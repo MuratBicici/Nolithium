@@ -1,6 +1,6 @@
 [package]
 name = "nolithium"
-version = "0.3.0"
+version = "0.3.1"
 description = "A quiet glass desk for notes"
 authors = ["Murat Emre Biçici"]
 license = "MIT"
