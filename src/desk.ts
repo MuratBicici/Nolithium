@@ -1,4 +1,5 @@
-import { SYMBOLS, type Note } from './types';
+import type { Note } from './types';
+import { normalizeSymbol } from './symbols';
 
 export const DESK_KEY = 'nolithium.desk.v2';
 export const LEGACY_KEY = 'nolithium.workspace.v1';
@@ -14,7 +15,7 @@ function readNote(value: unknown): Note {
     || typeof note.isPinned !== 'boolean' || typeof note.updatedAt !== 'string' || !Number.isFinite(Date.parse(note.updatedAt))) throw new Error('Invalid note');
   const file = note.file as { path?: unknown } | undefined;
   return { id: note.id, title: note.title, content: note.content, isPinned: note.isPinned, updatedAt: note.updatedAt,
-    symbol: SYMBOLS.includes(note.symbol as Note['symbol']) ? note.symbol as Note['symbol'] : '✎',
+    symbol: normalizeSymbol(note.symbol),
     ...(file && typeof file.path === 'string' && file.path ? { file: { path: file.path } } : {}) };
 }
 

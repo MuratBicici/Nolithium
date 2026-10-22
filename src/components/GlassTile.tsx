@@ -6,6 +6,7 @@ import type { Note } from '../types';
 import { plainPreview } from '../desk';
 import { fileKind } from '../files';
 import { GlassOptics } from './GlassOptics';
+import { symbolIcon } from '../symbols';
 
 /** Plain-text files preview their first line as written; Markdown loses its markers. */
 const preview = (note: Note) => note.file && fileKind(note.file.path) === 'text'
@@ -39,11 +40,16 @@ export function GlassTile({ ref, note, slot, onOpen, onMenu }: Props) {
     <button className="tile-open" aria-label={note ? `Open ${note.title || 'Untitled'}` : `Create note in slot ${slot + 1}`}
       onClick={event => onOpen(event.currentTarget)}
       onKeyDown={event => { if (note && (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); onMenu?.(rect.right - 20, rect.top + 32, event.currentTarget); } }}>
-      <span className="tile-watermark" aria-hidden="true">{note ? note.symbol : <Plus strokeWidth={1} />}</span>
+      <span className="tile-watermark" aria-hidden="true">{note ? <Watermark id={note.symbol} /> : <Plus strokeWidth={1} />}</span>
       {note ? <div className="tile-caption"><h2 title={note.file?.path}>{note.file && <Link2 size={11} className="tile-file" aria-label="Linked file" />}{note.title || 'Untitled'}</h2><p>{preview(note) || 'Empty note'}</p></div>
         : <span className="ghost-label">New note</span>}
     </button>
     {note && <><span className="tile-pin" aria-hidden="true">{note.isPinned && <Pin size={12} />}</span>
       <button className="tile-options micro-button" aria-label={`Options for ${note.title || 'Untitled'}`} onClick={event => { const rect = event.currentTarget.getBoundingClientRect(); onMenu?.(rect.right, rect.bottom + 6, event.currentTarget); }}><MoreHorizontal size={18} /></button></>}
   </motion.article>;
+}
+
+function Watermark({ id }: { id: string }) {
+  const Icon = symbolIcon(id);
+  return <Icon size="1em" strokeWidth={1.1} absoluteStrokeWidth={false} />;
 }

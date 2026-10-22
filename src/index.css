@@ -87,10 +87,6 @@ kbd { font-family: inherit; color: #d1ddc98a; font-size: 9px; }
 .rename-form input { width: 100%; min-width: 0; padding: 8px 4px 8px 10px; background: transparent; border: 0; color: #e3eee0; outline: none; font-size: 12px; }
 .rename-form:focus-within { border-color: #c4dbc750; }
 .rename-form .micro-button { flex: none; height: 26px; min-width: 26px; padding: 5px; border-radius: 5px; }
-.symbol-palette { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-.symbol-palette button { height: 34px; border-radius: 6px; color: #b1c3ac; background: #ffffff04; font-size: 17px; }
-.symbol-palette button.selected { background: #cee0c517; box-shadow: inset 0 0 0 1px #cce4bd30; color: #e6f6db; }
-.symbol-palette button:hover { background: #ffffff0f; }
 .context-divider { height: 1px; background: #ffffff0a; margin: 12px 0 5px; }
 .context-action { display: flex; align-items: center; gap: 9px; width: 100%; padding: 10px 7px; border-radius: 6px; background: transparent; font-size: 11px; color: #bacbb5; }
 .context-action:hover { background: #ffffff09; }.context-action svg:last-child:not(:first-child) { margin-left: auto; }
@@ -264,3 +260,14 @@ kbd { font-family: inherit; color: #d1ddc98a; font-size: 9px; }
 .view-switch button.is-on { color: #eef4ec; }
 .view-switch-pill { position: absolute; inset: 0; border-radius: 7px; background: #ffffff14; box-shadow: inset 0 1px 1px #ffffff12, 0 1px 3px #0000002e; }
 .view-switch-label { position: relative; }
+.symbol-current { float: right; color: #c8d4c7b0; }
+.context-menu .symbol-search { display: flex; font-size: 11.5px; align-items: center; gap: 7px; height: 30px; margin-bottom: 8px; padding: 0 9px; border: 1px solid #ffffff12; border-radius: 7px; background: #00000012; color: #a7b5a5b0; }
+.symbol-search:focus-within { border-color: #c4dbc750; }
+.symbol-search input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: #e3eee0; font-size: 11.5px; }
+.symbol-search input::placeholder { color: #a7b5a570; }
+.symbol-palette { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; max-height: 172px; overflow-y: auto; margin-right: -4px; padding-right: 4px; overscroll-behavior: contain; }
+.symbol-palette button { height: 34px; display: grid; place-items: center; border-radius: 7px; color: #b1c3ac; background: #ffffff04; }
+.symbol-palette button:hover { background: #ffffff0f; color: #e6f2e2; }
+.symbol-palette button.selected { background: #cee0c517; box-shadow: inset 0 0 0 1px #cce4bd30; color: #e6f6db; }
+.symbol-empty { grid-column: 1 / -1; margin: 10px 0; text-align: center; font-size: 11px; color: #a7b5a5a0; }
+.tile-watermark svg { display: block; }

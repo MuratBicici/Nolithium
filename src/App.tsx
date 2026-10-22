@@ -14,6 +14,7 @@ import type { Note } from './types';
 import { quickFade } from './motion';
 import { describeFileError, fileKind, fileName, samePath, watchOpenedFiles } from './files';
 import { useLinkedFiles } from './useLinkedFiles';
+import { DEFAULT_SYMBOL, MARKDOWN_FILE_SYMBOL, TEXT_FILE_SYMBOL } from './symbols';
 import { useUpdater } from './useUpdater';
 import { ViewSwitch, type DeskView } from './components/ViewSwitch';
 import { UpdatePrompt } from './components/UpdatePrompt';
@@ -184,7 +185,7 @@ function Desk({ loaded }: { loaded: LoadResult }) {
   }
   const createNote = useCallback((element?: HTMLElement) => {
     focusOrigin.current = element ?? document.activeElement as HTMLElement;
-    const note: Note = { id: crypto.randomUUID(), title: 'Untitled', content: '', symbol: '✎', isPinned: false, updatedAt: new Date().toISOString() };
+    const note: Note = { id: crypto.randomUUID(), title: 'Untitled', content: '', symbol: DEFAULT_SYMBOL, isPinned: false, updatedAt: new Date().toISOString() };
     newNoteIds.current.add(note.id);
     const next = [...notesRef.current, note];
     updateNotes(next); setBoardSnapshot(next); setMenu(null); setView('notes'); setActiveId(note.id);
@@ -219,7 +220,7 @@ function Desk({ loaded }: { loaded: LoadResult }) {
           bumpRevision(file.path);
           target = existing.id;
         } else {
-          const note: Note = { id: crypto.randomUUID(), title: file.name, content: file.text, symbol: fileKind(file.path) === 'markdown' ? '✎' : '☷',
+          const note: Note = { id: crypto.randomUUID(), title: file.name, content: file.text, symbol: fileKind(file.path) === 'markdown' ? MARKDOWN_FILE_SYMBOL : TEXT_FILE_SYMBOL,
             isPinned: false, updatedAt: new Date().toISOString(), file: { path: file.path } };
           updateNotes([...notesRef.current, note]);
           target = note.id;

@@ -20,7 +20,7 @@ describe('desk migration and validation', () => {
     const values = new Map([[LEGACY_KEY, JSON.stringify({ notes: [legacy], tasks: [{ text: 'Keep this plan' }] })]]);
     const result = loadDesk({ getItem: key => values.get(key) ?? null });
     expect(result.error).toBe('');
-    expect(result.notes[0]).toEqual({ id: legacy.id, title: legacy.title, content: legacy.content, isPinned: true, updatedAt: legacy.updatedAt, symbol: '✎' });
+    expect(result.notes[0]).toEqual({ id: legacy.id, title: legacy.title, content: legacy.content, isPinned: true, updatedAt: legacy.updatedAt, symbol: 'pencil' });
     expect(values.size).toBe(1);
     expect(values.get(LEGACY_KEY)).toContain('Keep this plan');
   });
